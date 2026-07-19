@@ -1,12 +1,15 @@
 package main
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
+	"sort"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/config"
-	"github.com/rancher/external-dns/utils"
+	"github.com/PastureStack/external-dns-sync/config"
+	"github.com/PastureStack/external-dns-sync/utils"
+	"github.com/sirupsen/logrus"
 )
 
 func UpdateProviderDnsRecords(metadataRecs map[string]utils.MetadataDnsRecord) ([]utils.MetadataDnsRecord, error) {
@@ -17,18 +20,28 @@ func UpdateProviderDnsRecords(metadataRecs map[string]utils.MetadataDnsRecord) (
 	}
 	logrus.Debugf("DNS records from provider: %v", ourRecords)
 
-	removeExtraRecords(metadataRecs, ourRecords)
+	if _, err := removeExtraRecords(metadataRecs, ourRecords); err != nil {
+		return nil, err
+	}
 
-	updated = append(updated, addMissingRecords(metadataRecs, allRecords)...)
+	added, err := addMissingRecords(metadataRecs, allRecords)
+	if err != nil {
+		return nil, err
+	}
+	updated = append(updated, added...)
 
-	updated = append(updated, updateExistingRecords(metadataRecs, allRecords)...)
+	changed, err := updateExistingRecords(metadataRecs, allRecords)
+	if err != nil {
+		return nil, err
+	}
+	updated = append(updated, changed...)
 
 	return updated, nil
 }
 
-func addMissingRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord {
+func addMissingRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) ([]utils.MetadataDnsRecord, error) {
 	var toAdd []utils.MetadataDnsRecord
-	for key := range metadataRecs {
+	for _, key := range sortedKeys(metadataRecs) {
 		if _, ok := providerRecs[key]; !ok {
 			toAdd = append(toAdd, metadataRecs[key])
 		}
@@ -42,37 +55,36 @@ func addMissingRecords(metadataRecs map[string]utils.MetadataDnsRecord, provider
 	return updateRecords(toAdd, &Add)
 }
 
-func updateRecords(toChange []utils.MetadataDnsRecord, op *Op) []utils.MetadataDnsRecord {
+func updateRecords(toChange []utils.MetadataDnsRecord, op *Op) ([]utils.MetadataDnsRecord, error) {
 	var changed []utils.MetadataDnsRecord
 	for _, value := range toChange {
+		var err error
 		switch *op {
 		case Add:
 			logrus.Infof("Adding dns record: %v", value)
-			if err := provider.AddRecord(value.DnsRecord); err != nil {
-				logrus.Errorf("Failed to add DNS record to provider %v: %v", value, err)
-			} else {
-				changed = append(changed, value)
-			}
+			err = provider.AddRecord(value.DnsRecord)
 		case Remove:
 			logrus.Infof("Removing dns record: %v", value)
-			if err := provider.RemoveRecord(value.DnsRecord); err != nil {
-				logrus.Errorf("Failed to remove DNS record from provider %v: %v", value, err)
-			}
+			err = provider.RemoveRecord(value.DnsRecord)
 		case Update:
 			logrus.Infof("Updating dns record: %v", value)
-			if err := provider.UpdateRecord(value.DnsRecord); err != nil {
-				logrus.Errorf("Failed to update DNS record to provider %v: %v", value, err)
-			} else {
-				changed = append(changed, value)
-			}
+			err = provider.UpdateRecord(value.DnsRecord)
+		default:
+			return changed, fmt.Errorf("unsupported DNS operation %q", op.Name)
+		}
+		if err != nil {
+			return changed, fmt.Errorf("%s DNS record %s: %w", strings.ToLower(op.Name), value.DnsRecord.Fqdn, err)
+		}
+		if *op != Remove {
+			changed = append(changed, value)
 		}
 	}
-	return changed
+	return changed, nil
 }
 
-func updateExistingRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord {
+func updateExistingRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) ([]utils.MetadataDnsRecord, error) {
 	var toUpdate []utils.MetadataDnsRecord
-	for key := range metadataRecs {
+	for _, key := range sortedKeys(metadataRecs) {
 		if _, ok := providerRecs[key]; ok {
 			metadataR := make(map[string]struct{}, len(metadataRecs[key].DnsRecord.Records))
 			for _, s := range metadataRecs[key].DnsRecord.Records {
@@ -113,11 +125,15 @@ func updateExistingRecords(metadataRecs map[string]utils.MetadataDnsRecord, prov
 	return updateRecords(toUpdate, &Update)
 }
 
-func removeExtraRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) []utils.MetadataDnsRecord {
+func removeExtraRecords(metadataRecs map[string]utils.MetadataDnsRecord, providerRecs map[string]utils.DnsRecord) ([]utils.MetadataDnsRecord, error) {
 	var toRemove []utils.MetadataDnsRecord
-	for key := range providerRecs {
+	for _, key := range sortedDNSRecordKeys(providerRecs) {
 		if _, ok := metadataRecs[key]; !ok {
-			toRemove = append(toRemove, utils.MetadataDnsRecord{"", "", providerRecs[key]})
+			toRemove = append(toRemove, utils.MetadataDnsRecord{
+				ServiceName: "",
+				StackName:   "",
+				DnsRecord:   providerRecs[key],
+			})
 		}
 	}
 
@@ -128,6 +144,38 @@ func removeExtraRecords(metadataRecs map[string]utils.MetadataDnsRecord, provide
 	}
 
 	return updateRecords(toRemove, &Remove)
+}
+
+func sortedKeys(records map[string]utils.MetadataDnsRecord) []string {
+	keys := make([]string, 0, len(records))
+	for key := range records {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		left := records[keys[i]].DnsRecord
+		right := records[keys[j]].DnsRecord
+		if left.Type != right.Type {
+			return left.Type != "TXT"
+		}
+		return keys[i] < keys[j]
+	})
+	return keys
+}
+
+func sortedDNSRecordKeys(records map[string]utils.DnsRecord) []string {
+	keys := make([]string, 0, len(records))
+	for key := range records {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		left := records[keys[i]]
+		right := records[keys[j]]
+		if left.Type != right.Type {
+			return left.Type != "TXT"
+		}
+		return keys[i] < keys[j]
+	})
+	return keys
 }
 
 func getProviderDnsRecords() (map[string]utils.DnsRecord, map[string]utils.DnsRecord, error) {

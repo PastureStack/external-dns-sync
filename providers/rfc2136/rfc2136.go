@@ -1,5 +1,7 @@
 package rfc2136
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
 	"net"
@@ -7,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/PastureStack/external-dns-sync/providers"
+	"github.com/PastureStack/external-dns-sync/utils"
 	"github.com/miekg/dns"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/sirupsen/logrus"
 )
 
 const (

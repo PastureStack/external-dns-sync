@@ -1,12 +1,14 @@
 package powerdns
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
 	"os"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/PastureStack/external-dns-sync/providers"
+	"github.com/PastureStack/external-dns-sync/utils"
+	"github.com/sirupsen/logrus"
 	"github.com/waynz0r/go-powerdns"
 )
 

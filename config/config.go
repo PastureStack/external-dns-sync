@@ -1,11 +1,13 @@
 package config
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"os"
 	"strconv"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/utils"
+	"github.com/PastureStack/external-dns-sync/utils"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -13,19 +15,23 @@ const (
 )
 
 var (
-	RootDomainName  string
-	TTL             int
-	CattleURL       string
-	CattleAccessKey string
-	CattleSecretKey string
-	NameTemplate    string
+	RootDomainName    string
+	TTL               int
+	PlatformURL       string
+	PlatformAccessKey string
+	PlatformSecretKey string
+	NameTemplate      string
+	MetadataURL       string
+	HealthAddress     string
 )
 
 func SetFromEnvironment() {
-	CattleURL = getEnv("CATTLE_URL")
-	CattleAccessKey = getEnv("CATTLE_ACCESS_KEY")
-	CattleSecretKey = getEnv("CATTLE_SECRET_KEY")
+	PlatformURL = getEnv("PLATFORM_URL")
+	PlatformAccessKey = getEnv("PLATFORM_ACCESS_KEY")
+	PlatformSecretKey = getEnv("PLATFORM_SECRET_KEY")
 	RootDomainName = utils.Fqdn(getEnv("ROOT_DOMAIN"))
+	MetadataURL = getOptionalEnv("METADATA_URL", "http://metadata/2015-12-19")
+	HealthAddress = getOptionalEnv("HEALTH_ADDRESS", ":10000")
 	NameTemplate = os.Getenv("NAME_TEMPLATE")
 	if len(NameTemplate) == 0 {
 		NameTemplate = defaultNameTemplate
@@ -33,7 +39,7 @@ func SetFromEnvironment() {
 
 	TTLEnv := os.Getenv("TTL")
 	i, err := strconv.Atoi(TTLEnv)
-	if err != nil {
+	if err != nil || i <= 0 {
 		TTL = 300
 	} else {
 		TTL = i
@@ -46,4 +52,11 @@ func getEnv(name string) string {
 		logrus.Fatalf("Environment variable '%s' is not set", name)
 	}
 	return envVar
+}
+
+func getOptionalEnv(name, fallback string) string {
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return fallback
 }

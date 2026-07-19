@@ -1,17 +1,19 @@
 package infoblox
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
-	"io/ioutil"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/PastureStack/external-dns-sync/providers"
+	"github.com/PastureStack/external-dns-sync/utils"
 	api "github.com/fanatic/go-infoblox"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -46,8 +48,8 @@ type Record struct {
 }
 
 type ResultPagination struct {
-	Page_id	string 	  `json:"next_page_id"`
-	Result 	[]*Record `json:"result"`
+	Page_id string    `json:"next_page_id"`
+	Result  []*Record `json:"result"`
 }
 
 type InfobloxProvider struct {
@@ -193,12 +195,12 @@ func (d *InfobloxProvider) RemoveRecord(record utils.DnsRecord) error {
 func (d *InfobloxProvider) GetRecords() ([]utils.DnsRecord, error) {
 	var records []utils.DnsRecord
 
-	recordAs, err := d.SendRequest("GET", recordAURL + "?" + recordAQuery + "&zone=" + d.zoneName, "", head)
+	recordAs, err := d.SendRequest("GET", recordAURL+"?"+recordAQuery+"&zone="+d.zoneName, "", head)
 	if err != nil {
 		return records, fmt.Errorf("Infoblox API call decode has failed: %v", err)
 	}
 
-	recordTxts, err := d.SendRequest("GET", recordTxtURL + "?" + recordTxtQuery + "&zone=" + d.zoneName, "", head)
+	recordTxts, err := d.SendRequest("GET", recordTxtURL+"?"+recordTxtQuery+"&zone="+d.zoneName, "", head)
 	if err != nil {
 		return records, fmt.Errorf("Infoblox API call decode has failed: %v", err)
 	}
@@ -330,9 +332,9 @@ func (d *InfobloxProvider) SendRequest(method, urlStr, body string, head map[str
 		return records, nil
 	}
 
-	logrus.Debugf("SendRequest to infoblox: [method]%s, [url] %s, [body] %s, [head] %v", method, urlStr, body)
+	logrus.Debugf("SendRequest to infoblox: [method]%s, [url] %s, [body] %s, [head] %v", method, urlStr, body, head)
 	_, err := d.client.SendRequest(method, urlStr, body, head)
 
-	return nil, err	
+	return nil, err
 
 }

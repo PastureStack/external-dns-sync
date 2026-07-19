@@ -1,15 +1,17 @@
 package OVH
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/PastureStack/external-dns-sync/providers"
+	"github.com/PastureStack/external-dns-sync/utils"
 	api "github.com/ovh/go-ovh/ovh"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/sirupsen/logrus"
 )
 
 type Record struct {

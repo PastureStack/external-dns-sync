@@ -1,16 +1,18 @@
 package dnsimple
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/PastureStack/external-dns-sync/providers"
+	"github.com/PastureStack/external-dns-sync/utils"
 	"github.com/dnsimple/dnsimple-go/dnsimple"
 	"github.com/juju/ratelimit"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/sirupsen/logrus"
 )
 
 type DNSimpleProvider struct {

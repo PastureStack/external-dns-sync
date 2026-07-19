@@ -1,10 +1,15 @@
 ---
 pipeline:
   build:
-    privileged: true
-    image: rancher/dapper:1.11.2
+    image: ubuntu:26.04
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+    - DAPPER_HOST_ARCH=amd64
+    - DOCKER_BUILD_NETWORK=host
     commands:
-    - dapper ci
-
+    - apt-get update
+    - apt-get install -y --no-install-recommends ca-certificates curl git make tar
+    - curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.4.2.tgz | tar xzf - -C /usr/bin --strip-components=1 docker/docker
+    - docker --version
+    - make ci

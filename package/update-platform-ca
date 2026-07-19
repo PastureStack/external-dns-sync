@@ -1,0 +1,20 @@
+#!/bin/bash
+# Modified by PastureStack contributors for independent maintenance and rebranding.
+set -euo pipefail
+
+PLATFORM_CA_ROOT="${PLATFORM_CA_ROOT:-/var/lib/pasturestack/etc/ssl/ca.crt}"
+SYSTEM_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
+CA_BUNDLE_PATH="${PLATFORM_CA_BUNDLE_PATH:-/tmp/pasturestack-ca-bundle.crt}"
+
+if [ ! -f "${PLATFORM_CA_ROOT}" ]; then
+    printf '%s\n' "${SYSTEM_CA_BUNDLE}"
+    exit 0
+fi
+
+temporary_bundle="${CA_BUNDLE_PATH}.tmp.$$"
+trap 'rm -f -- "${temporary_bundle}"' EXIT
+cat "${SYSTEM_CA_BUNDLE}" "${PLATFORM_CA_ROOT}" > "${temporary_bundle}"
+chmod 0600 "${temporary_bundle}"
+mv -f "${temporary_bundle}" "${CA_BUNDLE_PATH}"
+trap - EXIT
+printf '%s\n' "${CA_BUNDLE_PATH}"

@@ -1,8 +1,14 @@
 .DS_Store
-external-dns
+# Modified by PastureStack contributors for independent maintenance and rebranding.
+external-dns-sync
 /.dapper
 /bin
 /build
 /dist
+/package/COMPATIBILITY.md
+/package/LICENSE
+/package/ORIGIN.md
+/package/SECURITY.md
+/package/third-party-licenses/
 *.swp
 /.trash-cache

@@ -1,32 +1,84 @@
-FROM ubuntu:16.04
-# FROM arm=armhf/ubuntu:16.04
+ARG UBUNTU_IMAGE=ubuntu:26.04@sha256:3131b4cc82a783df6c9df078f86e01819a13594b865c2cad47bd1bca2b7063bb
+FROM ${UBUNTU_IMAGE}
 
-ARG DAPPER_HOST_ARCH
+# Modified by PastureStack contributors for independent maintenance and rebranding.
+
+ARG DAPPER_HOST_ARCH=amd64
+ARG GO_VERSION=1.26.5
+ARG DOCKER_VERSION=29.4.2
+ARG UBUNTU_MIRROR=http://archive.ubuntu.com/ubuntu
+ARG GO_LINUX_AMD64_SHA256=5c2c3b16caefa1d968a94c1daca04a7ca301a496d9b086e17ad77bb81393f053
+ARG GO_LINUX_ARM64_SHA256=fe4789e92b1f33358680864bbe8704289e7bb5fc207d80623c308935bd696d49
+ARG DOCKER_LINUX_AMD64_SHA256=e985c6dc5008b8d62d6bdf9b5894427d075b335a1391cacf24ee01a7a29a3728
+ARG DOCKER_LINUX_ARM64_SHA256=ce2cea8c740707d736ab356239f858d2272470d0734b5d14f20b950d1d6b952e
 ENV HOST_ARCH=${DAPPER_HOST_ARCH} ARCH=${DAPPER_HOST_ARCH}
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && \
-    apt-get install -y gcc ca-certificates git wget curl vim less file && \
+RUN set -eux; \
+    if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
+        sed -i "s|http://archive.ubuntu.com/ubuntu|${UBUNTU_MIRROR}|g; s|http://security.ubuntu.com/ubuntu|${UBUNTU_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources; \
+    fi; \
+    apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        file \
+        gcc \
+        git \
+        jq \
+        libc6-dev \
+        make \
+        tar \
+        xz-utils && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -f /usr/bin/pebble && \
     rm -f /bin/sh && ln -s /bin/bash /bin/sh
 
-ENV GOLANG_ARCH_amd64=amd64 GOLANG_ARCH_arm=armv6l GOLANG_ARCH=GOLANG_ARCH_${ARCH} \
-    GOPATH=/go PATH=/go/bin:/usr/local/go/bin:${PATH} SHELL=/bin/bash
+ENV GOPATH=/go \
+    PATH=/go/bin:/usr/local/go/bin:${PATH} \
+    SHELL=/bin/bash \
+    GO111MODULE=off \
+    GO15VENDOREXPERIMENT=1 \
+    GOCACHE=/tmp/go-build-cache \
+    GOTELEMETRY=off \
+    XDG_CONFIG_HOME=/tmp/go-config \
+    GIT_CONFIG_GLOBAL=/tmp/gitconfig
 
-RUN wget -O - https://storage.googleapis.com/golang/go1.8.3.linux-${!GOLANG_ARCH}.tar.gz | tar -xzf - -C /usr/local && \
-    go get github.com/rancher/trash && go get github.com/golang/lint/golint
+RUN set -eux; \
+    case "${DAPPER_HOST_ARCH}" in \
+        amd64) go_arch=amd64; go_sha="${GO_LINUX_AMD64_SHA256}" ;; \
+        arm64) go_arch=arm64; go_sha="${GO_LINUX_ARM64_SHA256}" ;; \
+        *) echo "unsupported DAPPER_HOST_ARCH=${DAPPER_HOST_ARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 300 \
+        -o /tmp/go.tgz "https://go.dev/dl/go${GO_VERSION}.linux-${go_arch}.tar.gz"; \
+    echo "${go_sha}  /tmp/go.tgz" | sha256sum -c -; \
+    tar -xzf /tmp/go.tgz -C /usr/local; \
+    rm -f /tmp/go.tgz; \
+    go version
 
-ENV DOCKER_URL_amd64=https://get.docker.com/builds/Linux/x86_64/docker-1.10.3 \
-    DOCKER_URL_arm=https://github.com/rancher/docker/releases/download/v1.10.3-ros1/docker-1.10.3_arm \
-    DOCKER_URL=DOCKER_URL_${ARCH}
+RUN set -eux; \
+    case "${DAPPER_HOST_ARCH}" in \
+        amd64) docker_arch=x86_64; docker_sha="${DOCKER_LINUX_AMD64_SHA256}" ;; \
+        arm64) docker_arch=aarch64; docker_sha="${DOCKER_LINUX_ARM64_SHA256}" ;; \
+        *) echo "unsupported DAPPER_HOST_ARCH=${DAPPER_HOST_ARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 300 \
+        -o /tmp/docker.tgz "https://download.docker.com/linux/static/stable/${docker_arch}/docker-${DOCKER_VERSION}.tgz"; \
+    echo "${docker_sha}  /tmp/docker.tgz" | sha256sum -c -; \
+    tar xzf /tmp/docker.tgz -C /usr/bin --strip-components=1 docker/docker; \
+    rm -f /tmp/docker.tgz; \
+    chmod +x /usr/bin/docker; \
+    docker --version
 
-RUN wget -O - ${!DOCKER_URL} > /usr/bin/docker && chmod +x /usr/bin/docker
-
-ENV DAPPER_SOURCE /go/src/github.com/rancher/external-dns/
-ENV DAPPER_OUTPUT ./bin ./dist
-ENV DAPPER_DOCKER_SOCKET true
-ENV TRASH_CACHE ${DAPPER_SOURCE}/.trash-cache
-ENV HOME ${DAPPER_SOURCE}
+ENV DAPPER_SOURCE=/go/src/github.com/PastureStack/external-dns-sync/
+ENV DAPPER_OUTPUT="./bin ./dist"
+ENV DAPPER_DOCKER_SOCKET=true
+ENV DAPPER_ENV="REPO IMAGE_NAMESPACE TAG VERSION_OVERRIDE REVISION_OVERRIDE DOCKER_BUILD_NETWORK UBUNTU_MIRROR"
+ENV HOME=${DAPPER_SOURCE}
 WORKDIR ${DAPPER_SOURCE}
+
+RUN git config --system --add safe.directory ${DAPPER_SOURCE}
 
 ENTRYPOINT ["./scripts/entry"]
 CMD ["ci"]
-
