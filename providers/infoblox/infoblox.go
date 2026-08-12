@@ -1,17 +1,20 @@
 package infoblox
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"io/ioutil"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/PastureStack/external-dns-sync/providers"
+	"github.com/PastureStack/external-dns-sync/utils"
 	api "github.com/fanatic/go-infoblox"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -22,6 +25,8 @@ const (
 	recordAURL   = versionURL + "record:a"
 	maxResults   = "1000"
 	firstPage    = "_return_as_object=1&_max_results=" + maxResults + "&_paging=1"
+	secretRoot   = "/run/secrets"
+	maxSecretLen = 64 << 10
 )
 
 var (
@@ -46,8 +51,8 @@ type Record struct {
 }
 
 type ResultPagination struct {
-	Page_id	string 	  `json:"next_page_id"`
-	Result 	[]*Record `json:"result"`
+	Page_id string    `json:"next_page_id"`
+	Result  []*Record `json:"result"`
 }
 
 type InfobloxProvider struct {
@@ -77,16 +82,13 @@ func (d *InfobloxProvider) Init(rootDomainName string) error {
 		}
 
 		// If password nil, using secrets
-		p, err := ioutil.ReadFile(secretFile)
+		p, err := readSecretFile(secretFile)
 		if err != nil {
-			return fmt.Errorf("Error reading INFOBLOX_SECRET %s: %v", secretFile, err)
-		}
-		if len(p) == 0 {
-			return fmt.Errorf("Got empty password from INFOBLOX_SECRET")
+			return fmt.Errorf("Error reading INFOBLOX_SECRET: %v", err)
 		}
 
-		logrus.Debugf("Infoblox using INFOBLOX_SECRET %s", secretFile)
-		password = string(p)
+		logrus.Debug("Infoblox using mounted secret file")
+		password = p
 	}
 
 	if sslVerifyStr := os.Getenv("SSL_VERIFY"); len(sslVerifyStr) == 0 {
@@ -112,6 +114,57 @@ func (d *InfobloxProvider) Init(rootDomainName string) error {
 		return err
 	}
 	return nil
+}
+
+func readSecretFile(secretPath string) (string, error) {
+	return readSecretFileFromRoot(secretRoot, secretPath)
+}
+
+// readSecretFileFromRoot accepts a Docker-style secret name or an absolute
+// path beneath the configured secret root. os.OpenInRoot enforces containment
+// while resolving every path component, including symbolic links.
+func readSecretFileFromRoot(rootPath, secretPath string) (string, error) {
+	secretPath = strings.TrimSpace(secretPath)
+	if secretPath == "" || strings.ContainsRune(secretPath, '\x00') {
+		return "", fmt.Errorf("secret path is empty or invalid")
+	}
+
+	rootPath = filepath.Clean(rootPath)
+	relativePath := filepath.Clean(secretPath)
+	if filepath.IsAbs(relativePath) {
+		var err error
+		relativePath, err = filepath.Rel(rootPath, relativePath)
+		if err != nil {
+			return "", fmt.Errorf("secret path is outside the mounted secret directory")
+		}
+	}
+	if relativePath == "." || !filepath.IsLocal(relativePath) {
+		return "", fmt.Errorf("secret path is outside the mounted secret directory")
+	}
+
+	file, err := os.OpenInRoot(rootPath, relativePath)
+	if err != nil {
+		return "", fmt.Errorf("open mounted secret: %w", err)
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return "", fmt.Errorf("inspect mounted secret: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("mounted secret is not a regular file")
+	}
+	payload, err := io.ReadAll(io.LimitReader(file, maxSecretLen+1))
+	if err != nil {
+		return "", fmt.Errorf("read mounted secret: %w", err)
+	}
+	if len(payload) == 0 {
+		return "", fmt.Errorf("mounted secret is empty")
+	}
+	if len(payload) > maxSecretLen {
+		return "", fmt.Errorf("mounted secret exceeds %d bytes", maxSecretLen)
+	}
+	return string(payload), nil
 }
 
 func (d *InfobloxProvider) validateZoneName(zoneName string) error {
@@ -193,12 +246,12 @@ func (d *InfobloxProvider) RemoveRecord(record utils.DnsRecord) error {
 func (d *InfobloxProvider) GetRecords() ([]utils.DnsRecord, error) {
 	var records []utils.DnsRecord
 
-	recordAs, err := d.SendRequest("GET", recordAURL + "?" + recordAQuery + "&zone=" + d.zoneName, "", head)
+	recordAs, err := d.SendRequest("GET", recordAURL+"?"+recordAQuery+"&zone="+d.zoneName, "", head)
 	if err != nil {
 		return records, fmt.Errorf("Infoblox API call decode has failed: %v", err)
 	}
 
-	recordTxts, err := d.SendRequest("GET", recordTxtURL + "?" + recordTxtQuery + "&zone=" + d.zoneName, "", head)
+	recordTxts, err := d.SendRequest("GET", recordTxtURL+"?"+recordTxtQuery+"&zone="+d.zoneName, "", head)
 	if err != nil {
 		return records, fmt.Errorf("Infoblox API call decode has failed: %v", err)
 	}
@@ -330,9 +383,9 @@ func (d *InfobloxProvider) SendRequest(method, urlStr, body string, head map[str
 		return records, nil
 	}
 
-	logrus.Debugf("SendRequest to infoblox: [method]%s, [url] %s, [body] %s, [head] %v", method, urlStr, body)
+	logrus.Debugf("SendRequest to infoblox: [method]%s, [url] %s, [body] %s, [head] %v", method, urlStr, body, head)
 	_, err := d.client.SendRequest(method, urlStr, body, head)
 
-	return nil, err	
+	return nil, err
 
 }

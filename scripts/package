@@ -1,5 +1,6 @@
 #!/bin/bash
-set -e
+# Modified by PastureStack contributors for independent maintenance and rebranding.
+set -euo pipefail
 
 source $(dirname $0)/version
 
@@ -10,11 +11,38 @@ SUFFIX=""
 cd $(dirname $0)/../package
 
 TAG=${TAG:-${VERSION}${SUFFIX}}
-REPO=${REPO:-rancher}
+REPO=${REPO:-ghcr.io/${IMAGE_NAMESPACE:-pasturestack}}
 
-cp ../bin/external-dns .
+cp ../bin/external-dns-sync .
+cp ../LICENSE ../SECURITY.md ../ORIGIN.md ../COMPATIBILITY.md ../THIRD_PARTY_NOTICES.md .
+cp ../ubuntu-apt.lock .
 
-IMAGE=${REPO}/external-dns:${TAG}
-docker build -t ${IMAGE} .
+# Preserve vendored license, notice, copyright, and author files in the runtime
+# image without modifying the vendored source tree.
+rm -rf third-party-licenses
+mkdir -p third-party-licenses
+while IFS= read -r -d '' legal_file; do
+    relative_path="${legal_file#../vendor/}"
+    destination="third-party-licenses/${relative_path}"
+    mkdir -p "$(dirname "${destination}")"
+    cp "${legal_file}" "${destination}"
+done < <(find ../vendor -type f \( \
+    -iname 'LICENSE*' -o \
+    -iname 'NOTICE*' -o \
+    -iname 'COPYING*' -o \
+    -iname 'COPYRIGHT*' -o \
+    -iname 'AUTHORS*' \
+\) -print0 | sort -z)
+
+legal_count=$(find third-party-licenses -type f | wc -l)
+test "${legal_count}" -eq 28
+
+IMAGE=${REPO}/external-dns-sync:${TAG}
+REVISION=${REVISION_OVERRIDE:-$(git -C .. rev-parse HEAD)}
+docker build --pull \
+    --network "${DOCKER_BUILD_NETWORK:-host}" \
+    --build-arg VERSION="${VERSION}" \
+    --build-arg REVISION="${REVISION}" \
+    -t "${IMAGE}" .
 echo ${IMAGE} > ../dist/images
 echo Built ${IMAGE}

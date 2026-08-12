@@ -1,9 +1,12 @@
 package providers
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/utils"
+
+	"github.com/PastureStack/external-dns-sync/utils"
+	"github.com/sirupsen/logrus"
 )
 
 type Provider interface {

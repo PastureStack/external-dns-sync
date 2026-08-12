@@ -1,19 +1,21 @@
 package gandi
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/PastureStack/external-dns-sync/providers"
+	"github.com/PastureStack/external-dns-sync/utils"
 	gandiClient "github.com/prasmussen/gandi-api/client"
 	gandiDomain "github.com/prasmussen/gandi-api/domain"
 	gandiZone "github.com/prasmussen/gandi-api/domain/zone"
 	gandiRecord "github.com/prasmussen/gandi-api/domain/zone/record"
 	gandiZoneVersion "github.com/prasmussen/gandi-api/domain/zone/version"
 	gandiOperation "github.com/prasmussen/gandi-api/operation"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/sirupsen/logrus"
 )
 
 type GandiProvider struct {

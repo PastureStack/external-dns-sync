@@ -1,5 +1,16 @@
 #!/bin/bash
 
+if [ -n "${VERSION_OVERRIDE:-}" ]; then
+	if [[ ! "${VERSION_OVERRIDE}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+		echo "VERSION_OVERRIDE must be a plain numeric semantic version" >&2
+		exit 1
+	fi
+    VERSION="${VERSION_OVERRIDE}"
+    ARCH="${ARCH:-amd64}"
+    return 0 2>/dev/null || exit 0
+fi
+
+DIRTY=""
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     DIRTY="-dirty"
 fi
@@ -13,6 +24,6 @@ else
     VERSION="${COMMIT}${DIRTY}"
 fi
 
-if [ -z "$ARCH" ]; then
+if [ -z "${ARCH:-}" ]; then
     ARCH=amd64
 fi

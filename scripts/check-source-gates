@@ -1,0 +1,135 @@
+#!/bin/bash
+set -euo pipefail
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$repo_root"
+
+failure_count=0
+
+require_marker() {
+  local file=$1
+  local marker=$2
+  local code=$3
+  if ! grep -F -- "$marker" "$file" >/dev/null; then
+    printf '%s file=%s marker=%s\n' "$code" "$file" "$marker" >&2
+    failure_count=$((failure_count + 1))
+  fi
+}
+
+reject_marker() {
+  local file=$1
+  local marker=$2
+  local code=$3
+  if grep -F -- "$marker" "$file" >/dev/null; then
+    printf '%s file=%s marker=%s\n' "$code" "$file" "$marker" >&2
+    failure_count=$((failure_count + 1))
+  fi
+}
+
+require_marker Dockerfile.dapper 'ARG GO_VERSION=1.26.5' EXTERNAL_DNS_GO_VERSION_NOT_CURRENT
+require_marker Dockerfile.dapper 'ARG GO_LINUX_AMD64_SHA256=5c2c3b16caefa1d968a94c1daca04a7ca301a496d9b086e17ad77bb81393f053' EXTERNAL_DNS_GO_AMD64_SHA_MISSING
+require_marker Dockerfile.dapper 'ARG GO_LINUX_ARM64_SHA256=fe4789e92b1f33358680864bbe8704289e7bb5fc207d80623c308935bd696d49' EXTERNAL_DNS_GO_ARM64_SHA_MISSING
+require_marker Dockerfile.dapper 'ARG DOCKER_VERSION=29.7.2' EXTERNAL_DNS_DOCKER_VERSION_NOT_CURRENT
+require_marker Dockerfile.dapper 'ARG DOCKER_LINUX_AMD64_SHA256=803d433f226db4776e1768fd319fc6c6e4935a456acf84fcc0080818b854bc8f' EXTERNAL_DNS_DOCKER_AMD64_SHA_MISSING
+require_marker Dockerfile.dapper 'ARG DOCKER_LINUX_ARM64_SHA256=43d143448adf2c2787704e7d7704fd6d62d367a54c5edaef0a3f75509cb0938d' EXTERNAL_DNS_DOCKER_ARM64_SHA_MISSING
+require_marker Dockerfile.dapper 'echo "${docker_sha}  /tmp/docker.tgz" | sha256sum -c -' EXTERNAL_DNS_DOCKER_SHA_NOT_CHECKED
+reject_marker Dockerfile.dapper 'curl -fsSL "https://download.docker.com' EXTERNAL_DNS_DOCKER_DOWNLOAD_UNBOUNDED
+require_marker package/Dockerfile 'USER 10001:10001' EXTERNAL_DNS_RUNTIME_NOT_NON_ROOT
+require_marker ubuntu-apt.lock "UBUNTU_APT_SNAPSHOT='20260808T000000Z'" EXTERNAL_DNS_APT_SNAPSHOT_MISSING
+require_marker Dockerfile.dapper 'ca-certificates="${UBUNTU_APT_CA_CERTIFICATES_VERSION}"' EXTERNAL_DNS_BUILD_APT_LOCK_MISSING
+require_marker package/Dockerfile 'ca-certificates="${UBUNTU_APT_CA_CERTIFICATES_VERSION}"' EXTERNAL_DNS_RUNTIME_APT_LOCK_MISSING
+require_marker package/Dockerfile 'org.opencontainers.image.version="${VERSION}"' EXTERNAL_DNS_OCI_VERSION_MISSING
+require_marker package/Dockerfile 'org.opencontainers.image.revision="${REVISION}"' EXTERNAL_DNS_OCI_REVISION_MISSING
+require_marker scripts/build 'go build -trimpath -ldflags "-buildid=' EXTERNAL_DNS_REPRODUCIBLE_BUILD_FLAGS_MISSING
+require_marker scripts/version 'plain numeric semantic version' EXTERNAL_DNS_NUMERIC_VERSION_GATE_MISSING
+require_marker scripts/package 'test "${legal_count}" -eq 28' EXTERNAL_DNS_LEGAL_COUNT_GATE_MISSING
+require_marker providers/route53/route53.go 'ROUTE53_ENDPOINT_URL' EXTERNAL_DNS_ROUTE53_ENDPOINT_OVERRIDE_MISSING
+require_marker main.go '_ "github.com/PastureStack/external-dns-sync/providers/route53"' EXTERNAL_DNS_ROUTE53_RUNTIME_REGISTRATION_MISSING
+require_marker internal/platformapi/client.go 'return http.ErrUseLastResponse' EXTERNAL_DNS_PLATFORM_REDIRECT_GATE_MISSING
+require_marker internal/platformapi/client.go 'type policyTransport struct' EXTERNAL_DNS_PLATFORM_ORIGIN_TRANSPORT_MISSING
+require_marker internal/platformapi/client.go 'isValidRedirectURL' EXTERNAL_DNS_PLATFORM_ORIGIN_VALIDATION_MISSING
+require_marker providers/infoblox/infoblox.go 'os.OpenInRoot(rootPath, relativePath)' EXTERNAL_DNS_INFOBLOX_SECRET_ROOT_MISSING
+require_marker providers/alidns/alidns.go 'int64(ttl) > maxInt32' EXTERNAL_DNS_ALIDNS_TTL_BOUND_MISSING
+require_marker package/update-platform-ca 'CA_BUNDLE_PATH="${PLATFORM_CA_BUNDLE_PATH:-/tmp/pasturestack-ca-bundle.crt}"' EXTERNAL_DNS_NON_ROOT_CA_BUNDLE_MISSING
+require_marker package/entrypoint.sh 'export PLATFORM_URL="${PLATFORM_URL:-${CATTLE_URL:-}}"' EXTERNAL_DNS_AGENT_URL_MAPPING_MISSING
+require_marker README.md 'ghcr.io/pasturestack/external-dns-sync:v0.8.0' EXTERNAL_DNS_README_VERSION_TAG_MISSING
+require_marker metadata/metadata.go '"io.rancher.service.external_dns"' EXTERNAL_DNS_LEGACY_SERVICE_POLICY_LABEL_MISSING
+require_marker metadata/metadata.go '"io.rancher.host.external_dns"' EXTERNAL_DNS_LEGACY_HOST_POLICY_LABEL_MISSING
+require_marker metadata/metadata.go '"io.rancher.host.external_dns_ip"' EXTERNAL_DNS_LEGACY_HOST_ADDRESS_LABEL_MISSING
+require_marker metadata/metadata.go '"io.rancher.service.external_dns_name_template"' EXTERNAL_DNS_LEGACY_SERVICE_TEMPLATE_LABEL_MISSING
+
+legal_count=$(
+  git ls-files 'vendor/**' |
+    grep -E '(^|/)(LICENSE[^/]*|NOTICE[^/]*|COPYING[^/]*|COPYRIGHT[^/]*|AUTHORS[^/]*)$' |
+    wc -l
+)
+if [ "$legal_count" -ne 28 ]; then
+  printf 'EXTERNAL_DNS_LEGAL_FILE_COUNT_MISMATCH count=%s expected=28\n' "$legal_count" >&2
+  failure_count=$((failure_count + 1))
+fi
+
+registered_provider_count=$(
+  grep -Ec '^[[:space:]]*_ "github.com/PastureStack/external-dns-sync/providers/' main.go
+)
+if [ "$registered_provider_count" -ne 1 ]; then
+  printf 'EXTERNAL_DNS_PUBLISHED_PROVIDER_COUNT_MISMATCH count=%s expected=1\n' \
+    "$registered_provider_count" >&2
+  failure_count=$((failure_count + 1))
+fi
+
+identity_or_private_host_hits=$(git grep -nEI \
+  '([[:alpha:]]:\\Users\\[^\\[:space:]]+|/home/[^/[:space:]]+|/Users/[^/[:space:]]+|(^|[^0-9])10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)|(^|[^0-9])192\.168\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)|(^|[^0-9])172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)|[[:alnum:]._%+-]+@(gmail|hotmail|outlook|yahoo)\.[[:alpha:]]{2,})' -- . \
+  ':(exclude)vendor/**' ':(exclude)scripts/check-source-gates' \
+  ':(exclude)README.md' ':(exclude)ORIGIN.md' \
+  ':(exclude)THIRD_PARTY_NOTICES.md' || true)
+unexpected_identity_or_private_host_hits=$(
+  printf '%s\n' "$identity_or_private_host_hits" |
+    grep -vE '/home/pasturestack([^[:alnum:]_.-]|$)' ||
+    true
+)
+if [ -n "$unexpected_identity_or_private_host_hits" ]; then
+  printf 'EXTERNAL_DNS_PUBLIC_IDENTITY_OR_PRIVATE_HOST_FOUND\n' >&2
+  printf '%s\n' "$unexpected_identity_or_private_host_hits" >&2
+  failure_count=$((failure_count + 1))
+fi
+
+brand_hits=$(git grep -nEI 'rancher' -- . \
+  ':(exclude)vendor/**' ':(exclude)scripts/check-source-gates' \
+  ':(exclude)README.md' ':(exclude)ORIGIN.md' \
+  ':(exclude)COMPATIBILITY.md' ':(exclude)THIRD_PARTY_NOTICES.md' \
+  ':(exclude)UNOFFICIAL_MAINTENANCE_FORK.md' || true)
+unexpected_brand_hits=$(
+  printf '%s\n' "$brand_hits" |
+    grep -vE '^(\./)?metadata/(metadata\.go|contracts_test\.go):[0-9]+:.*io\.rancher\.(service\.external_dns(_name_template)?|host\.external_dns(_ip)?)' ||
+    true
+)
+if [ -n "$unexpected_brand_hits" ]; then
+  printf 'EXTERNAL_DNS_BRAND_REFERENCE_OUTSIDE_ATTRIBUTION_FOUND\n' >&2
+  failure_count=$((failure_count + 1))
+fi
+
+legacy_source_label_count=$(
+  grep -Eo 'io\.rancher\.(service\.external_dns(_name_template)?|host\.external_dns(_ip)?)' \
+    metadata/metadata.go metadata/contracts_test.go |
+    wc -l
+)
+if [ "$legacy_source_label_count" -ne 8 ]; then
+  printf 'EXTERNAL_DNS_LEGACY_LABEL_SCOPE_MISMATCH count=%s expected=8\n' \
+    "$legacy_source_label_count" >&2
+  failure_count=$((failure_count + 1))
+fi
+
+if grep -RInE --exclude-dir=.git --exclude-dir=vendor \
+  'ghcr\.io/pasturestack/external-dns-sync:((latest|main|master)([^[:alnum:]._-]|$)|[^[:space:]]*@sha256:)' \
+  README.md COMPATIBILITY.md package scripts main.go internal providers >/dev/null; then
+  printf 'EXTERNAL_DNS_MUTABLE_OR_DIGEST_OPERATIONAL_REFERENCE_FOUND\n' >&2
+  failure_count=$((failure_count + 1))
+fi
+
+printf 'failure_count=%s\n' "$failure_count"
+if [ "$failure_count" -ne 0 ]; then
+  exit 1
+fi
+
+printf 'EXTERNAL_DNS_SOURCE_GATES_OK go=1.26.5 ubuntu=26.04 non_root=1 legal_files=%s endpoint_override=bounded\n' \
+  "$legal_count"

@@ -1,27 +1,19 @@
 package main
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"flag"
 	"os"
 	"reflect"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/config"
-	"github.com/rancher/external-dns/metadata"
-	"github.com/rancher/external-dns/providers"
-	_ "github.com/rancher/external-dns/providers/alidns"
-	_ "github.com/rancher/external-dns/providers/cloudflare"
-	_ "github.com/rancher/external-dns/providers/digitalocean"
-	_ "github.com/rancher/external-dns/providers/dnsimple"
-	_ "github.com/rancher/external-dns/providers/gandi"
-	_ "github.com/rancher/external-dns/providers/infoblox"
-	_ "github.com/rancher/external-dns/providers/ovh"
-	_ "github.com/rancher/external-dns/providers/pointhq"
-	_ "github.com/rancher/external-dns/providers/powerdns"
-	_ "github.com/rancher/external-dns/providers/rfc2136"
-	_ "github.com/rancher/external-dns/providers/route53"
-	"github.com/rancher/external-dns/utils"
+	"github.com/PastureStack/external-dns-sync/config"
+	"github.com/PastureStack/external-dns-sync/metadata"
+	"github.com/PastureStack/external-dns-sync/providers"
+	_ "github.com/PastureStack/external-dns-sync/providers/route53"
+	"github.com/PastureStack/external-dns-sync/utils"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -44,13 +36,13 @@ var (
 var Version string
 
 var (
-	providerName = flag.String("provider", "route53", "External provider name")
+	providerName = flag.String("provider", "route53", "External provider name (published runtime: route53)")
 	debug        = flag.Bool("debug", false, "Debug")
 	logFile      = flag.String("log", "", "Log file")
 
-	provider providers.Provider
-	m        *metadata.MetadataClient
-	c        *CattleClient
+	provider    providers.Provider
+	m           *metadata.MetadataClient
+	platformAPI *PlatformClient
 
 	metadataRecsCached = make(map[string]utils.MetadataDnsRecord)
 )
@@ -79,13 +71,13 @@ func setEnv() {
 	// configure metadata client
 	m, err = metadata.NewMetadataClient()
 	if err != nil {
-		logrus.Fatalf("Failed to configure rancher-metadata client: %v", err)
+		logrus.Fatalf("Failed to configure metadata client: %v", err)
 	}
 
-	//configure cattle client
-	c, err = NewCattleClient(config.CattleURL, config.CattleAccessKey, config.CattleSecretKey)
+	// Configure the legacy-compatible platform API client.
+	platformAPI, err = NewPlatformClient(config.PlatformURL, config.PlatformAccessKey, config.PlatformSecretKey)
 	if err != nil {
-		logrus.Fatalf("Failed to configure cattle client: %v", err)
+		logrus.Fatalf("Failed to configure platform API client: %v", err)
 	}
 
 	// get provider
@@ -96,16 +88,17 @@ func setEnv() {
 }
 
 func main() {
-	logrus.Infof("Starting Rancher External DNS service %s", Version)
+	logrus.Infof("Starting PastureStack External DNS Sync %s", Version)
 	setEnv()
 
-	go startHealthcheck()
+	go startHealthCheck()
 	if err := EnsureUpgradeToStateRRSet(); err != nil {
 		logrus.Fatalf("Failed to ensure upgrade: %v", err)
 	}
 
 	currentVersion := "init"
 	lastUpdated := time.Now()
+	hasSynchronized := false
 
 	for {
 		update, updateForced := false, false
@@ -139,7 +132,7 @@ func main() {
 			// in short intervals. Caching the previous metadata DNS records
 			// allows us to check if the actual records have changed before
 			// querying the provider records.
-			if updateForced || !reflect.DeepEqual(metadataRecs, metadataRecsCached) {
+			if shouldSynchronize(hasSynchronized, updateForced, metadataRecs, metadataRecsCached) {
 				// update the provider
 				updatedRecords, err := UpdateProviderDnsRecords(metadataRecs)
 				if err != nil {
@@ -147,18 +140,19 @@ func main() {
 					goto sleep
 				}
 
-				// update the service FQDN in Cattle
+				// Update the service FQDN through the platform compatibility API.
 				for _, mRec := range updatedRecords {
 					if mRec.ServiceName != "" && mRec.StackName != "" {
-						logrus.Debugf("Updating cattle service FQDN for %s/%s", mRec.ServiceName, mRec.StackName)
-						if err := c.UpdateServiceDomainName(mRec); err != nil {
-							logrus.Errorf("Failed to update cattle service FQDN: %v", err)
+						logrus.Debugf("Updating platform service FQDN for %s/%s", mRec.ServiceName, mRec.StackName)
+						if err := platformAPI.UpdateServiceDomainName(mRec); err != nil {
+							logrus.Errorf("Failed to update platform service FQDN: %v", err)
 						}
 					}
 				}
 
 				metadataRecsCached = metadataRecs
 				lastUpdated = time.Now()
+				hasSynchronized = true
 			} else {
 				logrus.Debugf("DNS records from metadata did not change")
 			}
@@ -166,4 +160,13 @@ func main() {
 	sleep:
 		time.Sleep(pollIntervalSeconds * time.Second)
 	}
+}
+
+func shouldSynchronize(
+	hasSynchronized bool,
+	updateForced bool,
+	metadataRecords map[string]utils.MetadataDnsRecord,
+	cachedRecords map[string]utils.MetadataDnsRecord,
+) bool {
+	return !hasSynchronized || updateForced || !reflect.DeepEqual(metadataRecords, cachedRecords)
 }

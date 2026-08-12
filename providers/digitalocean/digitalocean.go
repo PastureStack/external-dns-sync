@@ -1,18 +1,19 @@
 package digitalocean
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/PastureStack/external-dns-sync/config"
+	"github.com/PastureStack/external-dns-sync/providers"
+	"github.com/PastureStack/external-dns-sync/utils"
 	api "github.com/digitalocean/godo"
-	"golang.org/x/oauth2"
-
 	"github.com/juju/ratelimit"
-	"github.com/rancher/external-dns/config"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
 )
 
 type DigitalOceanProvider struct {

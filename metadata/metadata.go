@@ -1,19 +1,29 @@
 package metadata
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/rancher/external-dns/config"
-	"github.com/rancher/external-dns/utils"
-	"github.com/rancher/go-rancher-metadata/metadata"
+	"github.com/PastureStack/external-dns-sync/config"
+	"github.com/PastureStack/external-dns-sync/internal/metadata"
+	"github.com/PastureStack/external-dns-sync/utils"
+	"github.com/sirupsen/logrus"
 )
 
 const (
-	metadataUrl = "http://rancher-metadata.rancher.internal/2015-12-19"
+	defaultMetadataURL             = "http://metadata/2015-12-19"
+	servicePolicyLabel             = "io.pasturestack.service.external_dns"
+	hostPolicyLabel                = "io.pasturestack.host.external_dns"
+	hostExternalIPLabel            = "io.pasturestack.host.external_dns_ip"
+	serviceNameTemplateLabel       = "io.pasturestack.service.external_dns_name_template"
+	legacyServicePolicyLabel       = "io.rancher.service.external_dns"
+	legacyHostPolicyLabel          = "io.rancher.host.external_dns"
+	legacyHostExternalIPLabel      = "io.rancher.host.external_dns_ip"
+	legacyServiceNameTemplateLabel = "io.rancher.service.external_dns_name_template"
 )
 
 type MetadataClient struct {
@@ -39,14 +49,14 @@ func getEnvironment(m metadata.Client) (string, string, error) {
 }
 
 func NewMetadataClient() (*MetadataClient, error) {
-	m, err := metadata.NewClientAndWait(metadataUrl)
+	m, err := metadata.NewClientAndWait(config.MetadataURL)
 	if err != nil {
-		logrus.Fatalf("Failed to configure rancher-metadata: %v", err)
+		return nil, fmt.Errorf("configure metadata service: %w", err)
 	}
 
 	envName, envUUID, err := getEnvironment(m)
 	if err != nil {
-		logrus.Fatalf("Error reading stack info: %v", err)
+		return nil, fmt.Errorf("read stack info: %w", err)
 	}
 
 	return &MetadataClient{
@@ -83,9 +93,10 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 	hostMeta := make(map[string]metadata.Host)
 	for _, service := range services {
 
-		// Check for Service Label: io.rancher.service.external_dns
+		// The service policy label is a preserved legacy compatibility contract.
 		// Accepts 'always', 'auto' (default), or 'never'
-		policy, ok := service.Labels["io.rancher.service.external_dns"]
+		policy, ok := compatibilityLabelValue(
+			service.Labels, servicePolicyLabel, legacyServicePolicyLabel)
 		if !ok {
 			policy = "auto"
 		} else if policy == "never" {
@@ -121,9 +132,10 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 				hostMeta[hostUUID] = host
 			}
 
-			// Check for Host Label: io.rancher.host.external_dns
+			// The host policy label is a preserved legacy compatibility contract.
 			// Accepts 'true' (default) or 'false'
-			if label, ok := host.Labels["io.rancher.host.external_dns"]; ok {
+			if label, ok := compatibilityLabelValue(
+				host.Labels, hostPolicyLabel, legacyHostPolicyLabel); ok {
 				if label == "false" {
 					logrus.Debugf("Container %v Host %s is Disabled", container.Name, host.Name)
 					continue
@@ -131,7 +143,8 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 			}
 
 			var externalIP string
-			if ip, ok := host.Labels["io.rancher.host.external_dns_ip"]; ok && len(ip) > 0 {
+			if ip, ok := compatibilityLabelValue(
+				host.Labels, hostExternalIPLabel, legacyHostExternalIPLabel); ok && len(ip) > 0 {
 				externalIP = ip
 			} else if len(container.Ports) > 0 {
 				if ip, ok := parsePortToIP(container.Ports[0]); ok {
@@ -147,9 +160,11 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 
 			if net.ParseIP(externalIP) == nil {
 				logrus.Errorf("Skipping container %s: Invalid IP address %s", container.Name, externalIP)
+				continue
 			}
 
-			nameTemplate, ok := service.Labels["io.rancher.service.external_dns_name_template"]
+			nameTemplate, ok := compatibilityLabelValue(
+				service.Labels, serviceNameTemplateLabel, legacyServiceNameTemplateLabel)
 			if !ok {
 				nameTemplate = config.NameTemplate
 			}
@@ -173,6 +188,14 @@ func (m *MetadataClient) getContainersDnsRecords(dnsEntries map[string]utils.Met
 	}
 
 	return nil
+}
+
+func compatibilityLabelValue(labels map[string]string, primary, legacy string) (string, bool) {
+	if value, ok := labels[primary]; ok {
+		return value, true
+	}
+	value, ok := labels[legacy]
+	return value, ok
 }
 
 func (m *MetadataClient) updateEnvironmentName() error {
@@ -205,7 +228,12 @@ func addToDnsEntries(fqdn, ip, service, stack string, dnsEntries map[string]util
 	dnsEntries[fqdn] = utils.MetadataDnsRecord{
 		ServiceName: service,
 		StackName:   stack,
-		DnsRecord:   utils.DnsRecord{fqdn, records, "A", config.TTL},
+		DnsRecord: utils.DnsRecord{
+			Fqdn:    fqdn,
+			Records: records,
+			Type:    "A",
+			TTL:     config.TTL,
+		},
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasttemplate"
 )
 
@@ -86,7 +86,12 @@ func StateRecord(fqdn string, ttl int, entries map[string]struct{}) DnsRecord {
 		idx++
 	}
 	sort.Strings(records)
-	return DnsRecord{fqdn, records, "TXT", ttl}
+	return DnsRecord{
+		Fqdn:    fqdn,
+		Records: records,
+		Type:    "TXT",
+		TTL:     ttl,
+	}
 }
 
 // sanitizeLabel replaces characters that are not allowed in DNS labels with dashes.

@@ -1,12 +1,16 @@
 package route53
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/PastureStack/external-dns-sync/providers"
+	"github.com/PastureStack/external-dns-sync/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
@@ -14,8 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	awsRoute53 "github.com/aws/aws-sdk-go/service/route53"
 	"github.com/juju/ratelimit"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -23,9 +26,17 @@ var (
 )
 
 type Route53Provider struct {
-	client       *awsRoute53.Route53
+	client       route53Client
 	hostedZoneId string
 	limiter      *ratelimit.Bucket
+}
+
+type route53Client interface {
+	ChangeResourceRecordSets(*awsRoute53.ChangeResourceRecordSetsInput) (*awsRoute53.ChangeResourceRecordSetsOutput, error)
+	GetHostedZone(*awsRoute53.GetHostedZoneInput) (*awsRoute53.GetHostedZoneOutput, error)
+	GetHostedZoneCount(*awsRoute53.GetHostedZoneCountInput) (*awsRoute53.GetHostedZoneCountOutput, error)
+	ListHostedZonesByName(*awsRoute53.ListHostedZonesByNameInput) (*awsRoute53.ListHostedZonesByNameOutput, error)
+	ListResourceRecordSetsPages(*awsRoute53.ListResourceRecordSetsInput, func(*awsRoute53.ListResourceRecordSetsOutput, bool) bool) error
 }
 
 func init() {
@@ -44,10 +55,11 @@ func (r *Route53Provider) Init(rootDomainName string) error {
 
 	if envVal := os.Getenv("ROUTE53_MAX_RETRIES"); envVal != "" {
 		i, err := strconv.Atoi(envVal)
-		if err == nil {
+		if err == nil && i >= 0 && i <= 10 {
 			route53MaxRetries = i
 		} else {
-			logrus.Warnf("Invalid value for ROUTE53_MAX_RETRIES. Using default.")
+			logrus.Warn("Invalid value for ROUTE53_MAX_RETRIES; using 3")
+			route53MaxRetries = 3
 		}
 	}
 
@@ -61,6 +73,16 @@ func (r *Route53Provider) Init(rootDomainName string) error {
 
 	config := aws.NewConfig().WithMaxRetries(route53MaxRetries).
 		WithCredentials(creds)
+	if endpoint := strings.TrimSpace(os.Getenv("ROUTE53_ENDPOINT_URL")); endpoint != "" {
+		if err := validateEndpointURL(endpoint); err != nil {
+			return err
+		}
+		region := strings.TrimSpace(os.Getenv("AWS_REGION"))
+		if region == "" {
+			region = "us-east-1"
+		}
+		config = config.WithEndpoint(endpoint).WithRegion(region)
+	}
 
 	sess, err := session.NewSession(config)
 	if err != nil {
@@ -101,6 +123,9 @@ func (r *Route53Provider) setHostedZone(rootDomainName string) error {
 		return fmt.Errorf("Hosted zone for '%s' not found", rootDomainName)
 	}
 
+	if resp.HostedZones[0].Id == nil {
+		return fmt.Errorf("hosted zone response did not include an ID")
+	}
 	zoneId := *resp.HostedZones[0].Id
 	if strings.HasPrefix(zoneId, "/hostedzone/") {
 		zoneId = strings.TrimPrefix(zoneId, "/hostedzone/")
@@ -117,13 +142,14 @@ func (r *Route53Provider) validateHostedZoneId(rootDomainName string) error {
 	}
 	resp, err := r.client.GetHostedZone(params)
 	if err != nil {
-		return fmt.Errorf("Could not look up hosted zone ID %s: %v",
-			r.hostedZoneId, err)
+		return fmt.Errorf("could not look up configured hosted zone: %v", err)
 	}
 
+	if resp.HostedZone == nil || resp.HostedZone.Name == nil {
+		return fmt.Errorf("hosted zone response did not include a name")
+	}
 	if *resp.HostedZone.Name != rootDomainName {
-		return fmt.Errorf("Hosted zone ID '%s' does not match name '%s'",
-			r.hostedZoneId, rootDomainName)
+		return fmt.Errorf("configured hosted zone does not match root domain %q", rootDomainName)
 	}
 
 	return nil
@@ -152,6 +178,9 @@ func (r *Route53Provider) RemoveRecord(record utils.DnsRecord) error {
 }
 
 func (r *Route53Provider) changeRecord(record utils.DnsRecord, action string) error {
+	if len(record.Records) == 0 {
+		return fmt.Errorf("DNS record %q has no values", record.Fqdn)
+	}
 	r.limiter.Wait(1)
 	records := make([]*awsRoute53.ResourceRecord, len(record.Records))
 	for idx, value := range record.Records {
@@ -166,7 +195,7 @@ func (r *Route53Provider) changeRecord(record utils.DnsRecord, action string) er
 	params := &awsRoute53.ChangeResourceRecordSetsInput{
 		HostedZoneId: aws.String(r.hostedZoneId),
 		ChangeBatch: &awsRoute53.ChangeBatch{
-			Comment: aws.String("Managed by Rancher"),
+			Comment: aws.String("Managed by PastureStack External DNS Sync"),
 			Changes: []*awsRoute53.Change{
 				{
 					Action: aws.String(action),
@@ -207,6 +236,10 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 	}
 
 	for _, rrSet := range rrSets {
+		if rrSet == nil || rrSet.Name == nil || rrSet.Type == nil {
+			logrus.Warn("Skipping incomplete Route 53 record-set response")
+			continue
+		}
 		// skip proprietary Route 53 resource record sets
 		if IsProprietary(rrSet) {
 			logrus.Debugf("skipped properietary rrSet: %s", rrSet)
@@ -215,6 +248,9 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 
 		records := []string{}
 		for _, rr := range rrSet.ResourceRecords {
+			if rr == nil || rr.Value == nil {
+				continue
+			}
 			value := *rr.Value
 			if *rrSet.Type == "TXT" {
 				value = strings.Trim(value, `"`)
@@ -225,6 +261,10 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 		logrus.Debugf("rrSet: %s", rrSet)
 		logrus.Debugf("records: %s", records)
 
+		if rrSet.TTL == nil {
+			logrus.Warnf("Skipping Route 53 record %s without a TTL", *rrSet.Name)
+			continue
+		}
 		dnsRecord := utils.DnsRecord{
 			Fqdn:    *rrSet.Name,
 			Records: records,
@@ -239,4 +279,21 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 
 func IsProprietary(rr *awsRoute53.ResourceRecordSet) bool {
 	return (rr.AliasTarget != nil || rr.TrafficPolicyInstanceId != nil)
+}
+
+func validateEndpointURL(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("parse Route 53 endpoint URL: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("Route 53 endpoint URL must use http or https")
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("Route 53 endpoint URL must include a host")
+	}
+	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return fmt.Errorf("Route 53 endpoint URL must not contain user information, a query, or a fragment")
+	}
+	return nil
 }

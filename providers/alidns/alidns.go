@@ -1,14 +1,16 @@
 package alidns
 
+// Modified by PastureStack contributors for independent maintenance and rebranding.
+
 import (
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/PastureStack/external-dns-sync/providers"
+	"github.com/PastureStack/external-dns-sync/utils"
 	api "github.com/denverdino/aliyungo/dns"
-	"github.com/rancher/external-dns/providers"
-	"github.com/rancher/external-dns/utils"
+	"github.com/sirupsen/logrus"
 )
 
 type AlidnsProvider struct {
@@ -57,7 +59,10 @@ func (a *AlidnsProvider) HealthCheck() error {
 
 func (a *AlidnsProvider) AddRecord(record utils.DnsRecord) error {
 	for _, rec := range record.Records {
-		r := a.prepareRecord(record, rec)
+		r, err := a.prepareRecord(record, rec)
+		if err != nil {
+			return err
+		}
 		if _, err := a.client.AddDomainRecord(r); err != nil {
 			return fmt.Errorf("Alibaba Cloud API call has failed: %v", err)
 		}
@@ -143,14 +148,26 @@ func (a *AlidnsProvider) parseName(record utils.DnsRecord) string {
 	return strings.TrimSuffix(record.Fqdn, fmt.Sprintf(".%s.", a.rootDomainName))
 }
 
-func (a *AlidnsProvider) prepareRecord(record utils.DnsRecord, rec string) *api.AddDomainRecordArgs {
+func (a *AlidnsProvider) prepareRecord(record utils.DnsRecord, rec string) (*api.AddDomainRecordArgs, error) {
+	ttl, err := checkedTTL(record.TTL)
+	if err != nil {
+		return nil, err
+	}
 	return &api.AddDomainRecordArgs{
 		DomainName: a.rootDomainName,
 		RR:         a.parseName(record),
 		Type:       record.Type,
 		Value:      rec,
-		TTL:        int32(record.TTL),
+		TTL:        ttl,
+	}, nil
+}
+
+func checkedTTL(ttl int) (int32, error) {
+	const maxInt32 = int64(1<<31 - 1)
+	if ttl <= 0 || int64(ttl) > maxInt32 {
+		return 0, fmt.Errorf("AliDNS TTL must be between 1 and %d seconds", maxInt32)
 	}
+	return int32(ttl), nil
 }
 
 func (a *AlidnsProvider) findRecords(record utils.DnsRecord) ([]api.RecordType, error) {
