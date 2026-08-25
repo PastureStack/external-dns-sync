@@ -53,9 +53,9 @@ require_marker scripts/package 'test "${legal_count}" -eq 59' EXTERNAL_DNS_LEGAL
 require_marker scripts/package 'mkdir -p ../dist' EXTERNAL_DNS_DIST_DIRECTORY_GATE_MISSING
 require_marker go.mod 'go 1.26.0' EXTERNAL_DNS_GO_MODULE_COMPATIBILITY_VERSION_MISSING
 require_marker go.mod 'toolchain go1.27.0' EXTERNAL_DNS_GO_TOOLCHAIN_VERSION_MISSING
-require_marker go.mod 'github.com/aws/aws-sdk-go-v2/service/route53 v1.65.9' EXTERNAL_DNS_AWS_SDK_V2_ROUTE53_MISSING
+require_marker go.mod 'github.com/aws/aws-sdk-go-v2/service/route53 v1.65.10' EXTERNAL_DNS_AWS_SDK_V2_ROUTE53_MISSING
 require_marker go.mod 'github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0' EXTERNAL_DNS_ALIDNS_V5_MISSING
-require_marker vendor/modules.txt '# github.com/aws/aws-sdk-go-v2/service/route53 v1.65.9' EXTERNAL_DNS_AWS_SDK_V2_VENDOR_MISSING
+require_marker vendor/modules.txt '# github.com/aws/aws-sdk-go-v2/service/route53 v1.65.10' EXTERNAL_DNS_AWS_SDK_V2_VENDOR_MISSING
 require_marker vendor/modules.txt '# github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0' EXTERNAL_DNS_ALIDNS_V5_VENDOR_MISSING
 reject_marker go.mod 'github.com/aws/aws-sdk-go v1.' EXTERNAL_DNS_AWS_SDK_V1_PRESENT
 reject_marker providers/route53/route53.go 'github.com/aws/aws-sdk-go/' EXTERNAL_DNS_AWS_SDK_V1_IMPORT_PRESENT

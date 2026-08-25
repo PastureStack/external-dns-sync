@@ -18,5 +18,5 @@ vendored or claimed as PastureStack-authored work.
 Current Go dependencies are locked by `go.mod`, `go.sum`, and
 `vendor/modules.txt`. Packaging discovers and copies every vendored license,
 notice, copyright, and author file. In particular, the Route 53 integration
-uses `github.com/aws/aws-sdk-go-v2/service/route53 v1.65.9`, and the AliDNS
+uses `github.com/aws/aws-sdk-go-v2/service/route53 v1.65.10`, and the AliDNS
 integration uses `github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0`.
