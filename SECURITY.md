@@ -48,12 +48,14 @@ Deployments must mount only the required certificate path read-only.
 socket to build and package the runtime image. It must not be deployed as a
 production service.
 
-Build and runtime images use a digest-pinned Ubuntu 26.04 base and the
-`20260808T000000Z` Ubuntu snapshot with exact direct-package versions. The
-build image uses Go 1.26.5 and Docker CLI 29.7.2 from SHA-256-verified official
-archives.
-Vendored source is treated as attacker-readable. Disabled legacy build paths
-must fail closed and must not be restored without review.
+The build image uses a digest-pinned Ubuntu 26.04 base, the
+`20260808T000000Z` snapshot, Go 1.27.0, and Docker CLI 29.7.2 from
+SHA-256-verified official archives. The runtime uses a digest-pinned Alpine
+3.23 base with only exact Bash and CA-certificate packages.
+Builds run in Go module vendor mode with network dependency resolution disabled.
+Route 53 uses AWS SDK for Go v2 and AliDNS uses Alibaba Cloud's maintained V2.0
+SDK; the end-of-life AWS SDK for Go v1, Aliyungo, and `vendor.conf` must not
+be restored. Vendored source is treated as attacker-readable.
 
 ## Compatibility boundary
 

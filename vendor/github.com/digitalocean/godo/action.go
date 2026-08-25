@@ -1,6 +1,10 @@
 package godo
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"net/http"
+)
 
 const (
 	actionsBasePath = "v2/actions"
@@ -12,14 +16,14 @@ const (
 	ActionCompleted = "completed"
 )
 
-// ActionsService handles communction with action related methods of the
-// DigitalOcean API: https://developers.digitalocean.com/documentation/v2#actions
+// ActionsService handles communication with action related methods of the
+// DigitalOcean API: https://docs.digitalocean.com/reference/api/api-reference/#tag/Actions
 type ActionsService interface {
-	List(*ListOptions) ([]Action, *Response, error)
-	Get(int) (*Action, *Response, error)
+	List(context.Context, *ListOptions) ([]Action, *Response, error)
+	Get(context.Context, int) (*Action, *Response, error)
 }
 
-// ActionsServiceOp handles communition with the image action related methods of the
+// ActionsServiceOp handles communication with the image action related methods of the
 // DigitalOcean API.
 type ActionsServiceOp struct {
 	client *Client
@@ -30,6 +34,7 @@ var _ ActionsService = &ActionsServiceOp{}
 type actionsRoot struct {
 	Actions []Action `json:"actions"`
 	Links   *Links   `json:"links"`
+	Meta    *Meta    `json:"meta"`
 }
 
 type actionRoot struct {
@@ -50,44 +55,47 @@ type Action struct {
 }
 
 // List all actions
-func (s *ActionsServiceOp) List(opt *ListOptions) ([]Action, *Response, error) {
+func (s *ActionsServiceOp) List(ctx context.Context, opt *ListOptions) ([]Action, *Response, error) {
 	path := actionsBasePath
 	path, err := addOptions(path, opt)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	req, err := s.client.NewRequest("GET", path, nil)
+	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	root := new(actionsRoot)
-	resp, err := s.client.Do(req, root)
+	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		return nil, resp, err
 	}
 	if l := root.Links; l != nil {
 		resp.Links = l
 	}
+	if m := root.Meta; m != nil {
+		resp.Meta = m
+	}
 
 	return root.Actions, resp, err
 }
 
 // Get an action by ID.
-func (s *ActionsServiceOp) Get(id int) (*Action, *Response, error) {
+func (s *ActionsServiceOp) Get(ctx context.Context, id int) (*Action, *Response, error) {
 	if id < 1 {
 		return nil, nil, NewArgError("id", "cannot be less than 1")
 	}
 
 	path := fmt.Sprintf("%s/%d", actionsBasePath, id)
-	req, err := s.client.NewRequest("GET", path, nil)
+	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	root := new(actionRoot)
-	resp, err := s.client.Do(req, root)
+	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		return nil, resp, err
 	}

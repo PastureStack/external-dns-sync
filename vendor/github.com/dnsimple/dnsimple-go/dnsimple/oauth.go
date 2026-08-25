@@ -30,7 +30,7 @@ type OauthService struct {
 type AccessToken struct {
 	Token     string `json:"access_token"`
 	Type      string `json:"token_type"`
-	AccountID int    `json:"account_id"`
+	AccountID int64  `json:"account_id"`
 }
 
 // ExchangeAuthorizationRequest represents a request to exchange
@@ -49,7 +49,7 @@ type ExchangeAuthorizationRequest struct {
 // an authorization code for an access token.
 type ExchangeAuthorizationError struct {
 	// HTTP response
-	HttpResponse *http.Response
+	HTTPResponse *http.Response
 
 	ErrorCode        string `json:"error"`
 	ErrorDescription string `json:"error_description"`
@@ -58,7 +58,7 @@ type ExchangeAuthorizationError struct {
 // Error implements the error interface.
 func (r *ExchangeAuthorizationError) Error() string {
 	return fmt.Sprintf("%v %v: %v %v",
-		r.HttpResponse.Request.Method, r.HttpResponse.Request.URL,
+		r.HTTPResponse.Request.Method, r.HTTPResponse.Request.URL,
 		r.ErrorCode, r.ErrorDescription)
 }
 
@@ -67,21 +67,24 @@ func (r *ExchangeAuthorizationError) Error() string {
 func (s *OauthService) ExchangeAuthorizationForToken(authorization *ExchangeAuthorizationRequest) (*AccessToken, error) {
 	path := versioned("/oauth/access_token")
 
-	req, err := s.client.NewRequest("POST", path, authorization)
+	req, err := s.client.newRequest("POST", path, authorization)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := s.client.HttpClient.Do(req)
+	resp, err := s.client.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		errorResponse := &ExchangeAuthorizationError{}
-		errorResponse.HttpResponse = resp
-		json.NewDecoder(resp.Body).Decode(errorResponse)
+		err = json.NewDecoder(resp.Body).Decode(errorResponse)
+		if err != nil {
+			return nil, err
+		}
+		errorResponse.HTTPResponse = resp
 		return nil, errorResponse
 	}
 

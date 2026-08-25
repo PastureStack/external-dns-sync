@@ -9,6 +9,8 @@ external-dns-sync
 /package/LICENSE
 /package/ORIGIN.md
 /package/SECURITY.md
+/package/THIRD_PARTY_NOTICES.md
+/package/ubuntu-apt.lock
 /package/third-party-licenses/
 *.swp
 /.trash-cache

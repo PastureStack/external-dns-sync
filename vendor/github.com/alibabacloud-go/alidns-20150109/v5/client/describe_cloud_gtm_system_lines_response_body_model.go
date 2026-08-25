@@ -1,0 +1,177 @@
+// This file is auto-generated, don't edit it. Thanks.
+package client
+
+import (
+	"github.com/alibabacloud-go/tea/dara"
+)
+
+type iDescribeCloudGtmSystemLinesResponseBody interface {
+	dara.Model
+	String() string
+	GoString() string
+	SetRequestId(v string) *DescribeCloudGtmSystemLinesResponseBody
+	GetRequestId() *string
+	SetSystemLines(v *DescribeCloudGtmSystemLinesResponseBodySystemLines) *DescribeCloudGtmSystemLinesResponseBody
+	GetSystemLines() *DescribeCloudGtmSystemLinesResponseBodySystemLines
+	SetSystemLinesTree(v string) *DescribeCloudGtmSystemLinesResponseBody
+	GetSystemLinesTree() *string
+}
+
+type DescribeCloudGtmSystemLinesResponseBody struct {
+	// The unique request ID.
+	//
+	// example:
+	//
+	// 389DFFA3-77A5-4A9E-BF3D-147C6F98A5BA
+	RequestId   *string                                             `json:"RequestId,omitempty" xml:"RequestId,omitempty"`
+	SystemLines *DescribeCloudGtmSystemLinesResponseBodySystemLines `json:"SystemLines,omitempty" xml:"SystemLines,omitempty" type:"Struct"`
+	// The data of the system lines in a tree structure. The complete data is not listed due to its large size.
+	//
+	// example:
+	//
+	// "SystemLinesTree":"[{\\"displayName\\":\\"默认\\",\\"id\\":\\"default\\",\\"isAvailable\\":true,\\"name\\":\\"默认\\",\\"parentId\\":\\"\\"}
+	SystemLinesTree *string `json:"SystemLinesTree,omitempty" xml:"SystemLinesTree,omitempty"`
+}
+
+func (s DescribeCloudGtmSystemLinesResponseBody) String() string {
+	return dara.Prettify(s)
+}
+
+func (s DescribeCloudGtmSystemLinesResponseBody) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBody) GetRequestId() *string {
+	return s.RequestId
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBody) GetSystemLines() *DescribeCloudGtmSystemLinesResponseBodySystemLines {
+	return s.SystemLines
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBody) GetSystemLinesTree() *string {
+	return s.SystemLinesTree
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBody) SetRequestId(v string) *DescribeCloudGtmSystemLinesResponseBody {
+	s.RequestId = &v
+	return s
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBody) SetSystemLines(v *DescribeCloudGtmSystemLinesResponseBodySystemLines) *DescribeCloudGtmSystemLinesResponseBody {
+	s.SystemLines = v
+	return s
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBody) SetSystemLinesTree(v string) *DescribeCloudGtmSystemLinesResponseBody {
+	s.SystemLinesTree = &v
+	return s
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBody) Validate() error {
+	if s.SystemLines != nil {
+		if err := s.SystemLines.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type DescribeCloudGtmSystemLinesResponseBodySystemLines struct {
+	SystemLine []*DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine `json:"SystemLine,omitempty" xml:"SystemLine,omitempty" type:"Repeated"`
+}
+
+func (s DescribeCloudGtmSystemLinesResponseBodySystemLines) String() string {
+	return dara.Prettify(s)
+}
+
+func (s DescribeCloudGtmSystemLinesResponseBodySystemLines) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLines) GetSystemLine() []*DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine {
+	return s.SystemLine
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLines) SetSystemLine(v []*DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) *DescribeCloudGtmSystemLinesResponseBodySystemLines {
+	s.SystemLine = v
+	return s
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLines) Validate() error {
+	if s.SystemLine != nil {
+		for _, item := range s.SystemLine {
+			if item != nil {
+				if err := item.Validate(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine struct {
+	Code        *string `json:"Code,omitempty" xml:"Code,omitempty"`
+	DisplayName *string `json:"DisplayName,omitempty" xml:"DisplayName,omitempty"`
+	IsAvailable *bool   `json:"IsAvailable,omitempty" xml:"IsAvailable,omitempty"`
+	Name        *string `json:"Name,omitempty" xml:"Name,omitempty"`
+	ParentCode  *string `json:"ParentCode,omitempty" xml:"ParentCode,omitempty"`
+}
+
+func (s DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) String() string {
+	return dara.Prettify(s)
+}
+
+func (s DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) GetCode() *string {
+	return s.Code
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) GetDisplayName() *string {
+	return s.DisplayName
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) GetIsAvailable() *bool {
+	return s.IsAvailable
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) GetName() *string {
+	return s.Name
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) GetParentCode() *string {
+	return s.ParentCode
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) SetCode(v string) *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine {
+	s.Code = &v
+	return s
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) SetDisplayName(v string) *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine {
+	s.DisplayName = &v
+	return s
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) SetIsAvailable(v bool) *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine {
+	s.IsAvailable = &v
+	return s
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) SetName(v string) *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine {
+	s.Name = &v
+	return s
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) SetParentCode(v string) *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine {
+	s.ParentCode = &v
+	return s
+}
+
+func (s *DescribeCloudGtmSystemLinesResponseBodySystemLinesSystemLine) Validate() error {
+	return dara.Validate(s)
+}

@@ -56,7 +56,7 @@ deletion of unrelated provider records.
 
 ## Provider boundary
 
-The reviewed `v0.8.0` image registers only the `route53` provider. Other
+The reviewed `v0.8.1` image registers only the `route53` provider. Other
 provider implementations inherited in the source tree are not included in the
 published runtime registration surface.
 
@@ -65,7 +65,7 @@ published runtime registration surface.
 - Repository and source import: `github.com/PastureStack/external-dns-sync`
 - Executable: `external-dns-sync`
 - Container image: `ghcr.io/pasturestack/external-dns-sync`
-- Runtime entrypoint: `/usr/bin/entrypoint.sh`
+- Runtime entrypoint: `/usr/local/bin/entrypoint.sh`
 
 This component has no browser UI or runtime localization framework. Operational
 flags and logs remain English, and no unsupported locale files are included.

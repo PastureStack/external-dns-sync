@@ -20,12 +20,12 @@ jobs:
     env:
       DAPPER_IMAGE: pasturestack/external-dns-sync-dapper:${{ github.sha }}
       RUNTIME_IMAGE: ghcr.io/pasturestack/external-dns-sync:v0.8.1
-      TRIVY_IMAGE: aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c
+      TRIVY_IMAGE: aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
       VERSION_OVERRIDE: v0.8.1
 
     steps:
       - name: Check out candidate
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -45,7 +45,9 @@ jobs:
             scripts/version \
             security/dapper.openvex.json \
             ubuntu-apt.lock \
-            vendor.conf \
+            go.mod \
+            go.sum \
+            vendor/modules.txt \
             > evidence/source-locks.sha256
           ./scripts/check-source-gates
 
@@ -106,15 +108,16 @@ jobs:
             "printf 'package\\tversion\\n'; dpkg-query -W -f='\${binary:Package}\\t\${Version}\\n' | LC_ALL=C sort" \
             > evidence/dapper-dpkg.tsv
           docker run --rm --entrypoint sh "$RUNTIME_IMAGE" -lc \
-            "printf 'package\\tversion\\n'; dpkg-query -W -f='\${binary:Package}\\t\${Version}\\n' | LC_ALL=C sort" \
-            > evidence/runtime-dpkg.tsv
+            "printf 'package\\n'; apk info -v | LC_ALL=C sort" \
+            > evidence/runtime-apk.tsv
           docker run --rm --entrypoint sh "$DAPPER_IMAGE" -lc \
             'docker --version; go version -m /usr/bin/docker' \
             > evidence/docker-cli-version.txt
           grep -F 'Docker version 29.7.2' evidence/docker-cli-version.txt >/dev/null
-          test -f package/third-party-licenses/github.com/aws/aws-sdk-go/LICENSE.txt
-          test -f package/third-party-licenses/github.com/aws/aws-sdk-go/NOTICE.txt
-          test "$(find package/third-party-licenses -type f | wc -l)" -eq 28
+          test -f package/third-party-licenses/github.com/aws/aws-sdk-go-v2/LICENSE.txt
+          test -f package/third-party-licenses/github.com/aws/aws-sdk-go-v2/NOTICE.txt
+          test -f package/third-party-licenses/github.com/alibabacloud-go/alidns-20150109/v5/LICENSE
+          test "$(find package/third-party-licenses -type f | wc -l)" -eq 59
 
       - name: Scan source, product, and images
         shell: bash
@@ -289,7 +292,7 @@ jobs:
 
       - name: Upload review evidence
         if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: external-dns-sync-security-${{ github.sha }}
           path: evidence/

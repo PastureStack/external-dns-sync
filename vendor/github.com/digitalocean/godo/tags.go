@@ -1,21 +1,24 @@
 package godo
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"net/http"
+)
 
 const tagsBasePath = "v2/tags"
 
 // TagsService is an interface for interfacing with the tags
 // endpoints of the DigitalOcean API
-// See: https://developers.digitalocean.com/documentation/v2#tags
+// See: https://docs.digitalocean.com/reference/api/api-reference/#tag/Tags
 type TagsService interface {
-	List(*ListOptions) ([]Tag, *Response, error)
-	Get(string) (*Tag, *Response, error)
-	Create(*TagCreateRequest) (*Tag, *Response, error)
-	Update(string, *TagUpdateRequest) (*Response, error)
-	Delete(string) (*Response, error)
+	List(context.Context, *ListOptions) ([]Tag, *Response, error)
+	Get(context.Context, string) (*Tag, *Response, error)
+	Create(context.Context, *TagCreateRequest) (*Tag, *Response, error)
+	Delete(context.Context, string) (*Response, error)
 
-	TagResources(string, *TagResourcesRequest) (*Response, error)
-	UntagResources(string, *UntagResourcesRequest) (*Response, error)
+	TagResources(context.Context, string, *TagResourcesRequest) (*Response, error)
+	UntagResources(context.Context, string, *UntagResourcesRequest) (*Response, error)
 }
 
 // TagsServiceOp handles communication with tag related method of the
@@ -30,25 +33,61 @@ var _ TagsService = &TagsServiceOp{}
 type ResourceType string
 
 const (
+	// DropletResourceType holds the string representing our ResourceType of Droplet.
 	DropletResourceType ResourceType = "droplet"
+	// ImageResourceType holds the string representing our ResourceType of Image.
+	ImageResourceType ResourceType = "image"
+	// VolumeResourceType holds the string representing our ResourceType of Volume.
+	VolumeResourceType ResourceType = "volume"
+	// LoadBalancerResourceType holds the string representing our ResourceType of LoadBalancer.
+	LoadBalancerResourceType ResourceType = "load_balancer"
+	// VolumeSnapshotResourceType holds the string representing our ResourceType for storage Snapshots.
+	VolumeSnapshotResourceType ResourceType = "volume_snapshot"
+	// DatabaseResourceType holds the string representing our ResourceType of Database.
+	DatabaseResourceType ResourceType = "database"
 )
 
 // Resource represent a single resource for associating/disassociating with tags
 type Resource struct {
-	ID   string       `json:"resource_id,omit_empty"`
-	Type ResourceType `json:"resource_type,omit_empty"`
+	ID   string       `json:"resource_id,omitempty"`
+	Type ResourceType `json:"resource_type,omitempty"`
 }
 
 // TaggedResources represent the set of resources a tag is attached to
 type TaggedResources struct {
-	Droplets *TaggedDropletsResources `json:"droplets,omitempty"`
+	Count           int                             `json:"count"`
+	LastTaggedURI   string                          `json:"last_tagged_uri,omitempty"`
+	Droplets        *TaggedDropletsResources        `json:"droplets,omitempty"`
+	Images          *TaggedImagesResources          `json:"images"`
+	Volumes         *TaggedVolumesResources         `json:"volumes"`
+	VolumeSnapshots *TaggedVolumeSnapshotsResources `json:"volume_snapshots"`
+	Databases       *TaggedDatabasesResources       `json:"databases"`
 }
 
 // TaggedDropletsResources represent the droplet resources a tag is attached to
 type TaggedDropletsResources struct {
-	Count      int      `json:"count,float64,omitempty"`
-	LastTagged *Droplet `json:"last_tagged,omitempty"`
+	Count         int      `json:"count,float64,omitempty"`
+	LastTagged    *Droplet `json:"last_tagged,omitempty"`
+	LastTaggedURI string   `json:"last_tagged_uri,omitempty"`
 }
+
+// TaggedResourcesData represent the generic resources a tag is attached to
+type TaggedResourcesData struct {
+	Count         int    `json:"count,float64,omitempty"`
+	LastTaggedURI string `json:"last_tagged_uri,omitempty"`
+}
+
+// TaggedImagesResources represent the image resources a tag is attached to
+type TaggedImagesResources TaggedResourcesData
+
+// TaggedVolumesResources represent the volume resources a tag is attached to
+type TaggedVolumesResources TaggedResourcesData
+
+// TaggedVolumeSnapshotsResources represent the volume snapshot resources a tag is attached to
+type TaggedVolumeSnapshotsResources TaggedResourcesData
+
+// TaggedDatabasesResources represent the database resources a tag is attached to
+type TaggedDatabasesResources TaggedResourcesData
 
 // Tag represent DigitalOcean tag
 type Tag struct {
@@ -56,18 +95,17 @@ type Tag struct {
 	Resources *TaggedResources `json:"resources,omitempty"`
 }
 
+// TagCreateRequest represents the JSON structure of a request of that type.
 type TagCreateRequest struct {
 	Name string `json:"name"`
 }
 
-type TagUpdateRequest struct {
-	Name string `json:"name"`
-}
-
+// TagResourcesRequest represents the JSON structure of a request of that type.
 type TagResourcesRequest struct {
 	Resources []Resource `json:"resources"`
 }
 
+// UntagResourcesRequest represents the JSON structure of a request of that type.
 type UntagResourcesRequest struct {
 	Resources []Resource `json:"resources"`
 }
@@ -75,6 +113,7 @@ type UntagResourcesRequest struct {
 type tagsRoot struct {
 	Tags  []Tag  `json:"tags"`
 	Links *Links `json:"links"`
+	Meta  *Meta  `json:"meta"`
 }
 
 type tagRoot struct {
@@ -82,7 +121,7 @@ type tagRoot struct {
 }
 
 // List all tags
-func (s *TagsServiceOp) List(opt *ListOptions) ([]Tag, *Response, error) {
+func (s *TagsServiceOp) List(ctx context.Context, opt *ListOptions) ([]Tag, *Response, error) {
 	path := tagsBasePath
 	path, err := addOptions(path, opt)
 
@@ -90,34 +129,37 @@ func (s *TagsServiceOp) List(opt *ListOptions) ([]Tag, *Response, error) {
 		return nil, nil, err
 	}
 
-	req, err := s.client.NewRequest("GET", path, nil)
+	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	root := new(tagsRoot)
-	resp, err := s.client.Do(req, root)
+	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		return nil, resp, err
 	}
 	if l := root.Links; l != nil {
 		resp.Links = l
 	}
+	if m := root.Meta; m != nil {
+		resp.Meta = m
+	}
 
 	return root.Tags, resp, err
 }
 
 // Get a single tag
-func (s *TagsServiceOp) Get(name string) (*Tag, *Response, error) {
+func (s *TagsServiceOp) Get(ctx context.Context, name string) (*Tag, *Response, error) {
 	path := fmt.Sprintf("%s/%s", tagsBasePath, name)
 
-	req, err := s.client.NewRequest("GET", path, nil)
+	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	root := new(tagRoot)
-	resp, err := s.client.Do(req, root)
+	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		return nil, resp, err
 	}
@@ -126,18 +168,18 @@ func (s *TagsServiceOp) Get(name string) (*Tag, *Response, error) {
 }
 
 // Create a new tag
-func (s *TagsServiceOp) Create(createRequest *TagCreateRequest) (*Tag, *Response, error) {
+func (s *TagsServiceOp) Create(ctx context.Context, createRequest *TagCreateRequest) (*Tag, *Response, error) {
 	if createRequest == nil {
 		return nil, nil, NewArgError("createRequest", "cannot be nil")
 	}
 
-	req, err := s.client.NewRequest("POST", tagsBasePath, createRequest)
+	req, err := s.client.NewRequest(ctx, http.MethodPost, tagsBasePath, createRequest)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	root := new(tagRoot)
-	resp, err := s.client.Do(req, root)
+	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		return nil, resp, err
 	}
@@ -145,46 +187,25 @@ func (s *TagsServiceOp) Create(createRequest *TagCreateRequest) (*Tag, *Response
 	return root.Tag, resp, err
 }
 
-// Update an exsting tag
-func (s *TagsServiceOp) Update(name string, updateRequest *TagUpdateRequest) (*Response, error) {
-	if name == "" {
-		return nil, NewArgError("name", "cannot be empty")
-	}
-
-	if updateRequest == nil {
-		return nil, NewArgError("updateRequest", "cannot be nil")
-	}
-
-	path := fmt.Sprintf("%s/%s", tagsBasePath, name)
-	req, err := s.client.NewRequest("PUT", path, updateRequest)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := s.client.Do(req, nil)
-
-	return resp, err
-}
-
 // Delete an existing tag
-func (s *TagsServiceOp) Delete(name string) (*Response, error) {
+func (s *TagsServiceOp) Delete(ctx context.Context, name string) (*Response, error) {
 	if name == "" {
 		return nil, NewArgError("name", "cannot be empty")
 	}
 
 	path := fmt.Sprintf("%s/%s", tagsBasePath, name)
-	req, err := s.client.NewRequest("DELETE", path, nil)
+	req, err := s.client.NewRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := s.client.Do(req, nil)
+	resp, err := s.client.Do(ctx, req, nil)
 
 	return resp, err
 }
 
-// Associate resources with a tag
-func (s *TagsServiceOp) TagResources(name string, tagRequest *TagResourcesRequest) (*Response, error) {
+// TagResources associates resources with a given Tag.
+func (s *TagsServiceOp) TagResources(ctx context.Context, name string, tagRequest *TagResourcesRequest) (*Response, error) {
 	if name == "" {
 		return nil, NewArgError("name", "cannot be empty")
 	}
@@ -194,18 +215,18 @@ func (s *TagsServiceOp) TagResources(name string, tagRequest *TagResourcesReques
 	}
 
 	path := fmt.Sprintf("%s/%s/resources", tagsBasePath, name)
-	req, err := s.client.NewRequest("POST", path, tagRequest)
+	req, err := s.client.NewRequest(ctx, http.MethodPost, path, tagRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := s.client.Do(req, nil)
+	resp, err := s.client.Do(ctx, req, nil)
 
 	return resp, err
 }
 
-// Dissociate resources with a tag
-func (s *TagsServiceOp) UntagResources(name string, untagRequest *UntagResourcesRequest) (*Response, error) {
+// UntagResources dissociates resources with a given Tag.
+func (s *TagsServiceOp) UntagResources(ctx context.Context, name string, untagRequest *UntagResourcesRequest) (*Response, error) {
 	if name == "" {
 		return nil, NewArgError("name", "cannot be empty")
 	}
@@ -215,12 +236,12 @@ func (s *TagsServiceOp) UntagResources(name string, untagRequest *UntagResources
 	}
 
 	path := fmt.Sprintf("%s/%s/resources", tagsBasePath, name)
-	req, err := s.client.NewRequest("DELETE", path, untagRequest)
+	req, err := s.client.NewRequest(ctx, http.MethodDelete, path, untagRequest)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := s.client.Do(req, nil)
+	resp, err := s.client.Do(ctx, req, nil)
 
 	return resp, err
 }

@@ -18,7 +18,7 @@ for the neutral runtime contract.
 
 ## Published provider
 
-The reviewed `v0.8.0` runtime registers only Amazon Route 53 because that is
+The reviewed `v0.8.1` runtime registers only Amazon Route 53 because that is
 the first-party infrastructure template being preserved in this release.
 Historical implementations for other providers remain in the upstream-derived
 source tree for provenance and license continuity, but they are not registered
@@ -81,8 +81,11 @@ precedence for new deployments.
 
 ## Local build and test
 
-The project uses a containerized Go 1.26.5 build environment with vendored
-dependencies.
+The project uses a containerized Go 1.27.0 module build with a committed
+`vendor/modules.txt` dependency lock. Route 53 uses AWS SDK for Go v2
+`v1.65.9`; AliDNS uses Alibaba Cloud's maintained V2.0 SDK `v5.6.0`.
+The end-of-life AWS SDK for Go v1, Aliyungo, and the legacy `vendor.conf`
+workflow are not used.
 
 ```bash
 VERSION_OVERRIDE=poc ARCH=amd64 make test
@@ -99,7 +102,7 @@ After packaging a local image, the entrypoint and binary can be checked without
 contacting a provider:
 
 ```bash
-docker run --rm ghcr.io/pasturestack/external-dns-sync:v0.8.0 --help
+docker run --rm ghcr.io/pasturestack/external-dns-sync:v0.8.1 --help
 ```
 
 ## Runtime boundary

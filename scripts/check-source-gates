@@ -26,9 +26,13 @@ reject_marker() {
   fi
 }
 
-require_marker Dockerfile.dapper 'ARG GO_VERSION=1.26.5' EXTERNAL_DNS_GO_VERSION_NOT_CURRENT
-require_marker Dockerfile.dapper 'ARG GO_LINUX_AMD64_SHA256=5c2c3b16caefa1d968a94c1daca04a7ca301a496d9b086e17ad77bb81393f053' EXTERNAL_DNS_GO_AMD64_SHA_MISSING
-require_marker Dockerfile.dapper 'ARG GO_LINUX_ARM64_SHA256=fe4789e92b1f33358680864bbe8704289e7bb5fc207d80623c308935bd696d49' EXTERNAL_DNS_GO_ARM64_SHA_MISSING
+require_marker Dockerfile.dapper 'ARG GO_VERSION=1.27.0' EXTERNAL_DNS_GO_VERSION_NOT_CURRENT
+require_marker Dockerfile.dapper 'GO111MODULE=on' EXTERNAL_DNS_GO_MODULE_MODE_MISSING
+require_marker Dockerfile.dapper 'GOTOOLCHAIN=local' EXTERNAL_DNS_GO_TOOLCHAIN_NOT_LOCAL
+require_marker Dockerfile.dapper 'GOPROXY=off' EXTERNAL_DNS_GO_NETWORK_BUILD_NOT_DISABLED
+reject_marker Dockerfile.dapper 'GO111MODULE=off' EXTERNAL_DNS_LEGACY_GOPATH_MODE_PRESENT
+require_marker Dockerfile.dapper 'ARG GO_LINUX_AMD64_SHA256=675c26c449cbb18fc24b74650de1eabbae6e16f64326fd85a283fb3b58280685' EXTERNAL_DNS_GO_AMD64_SHA_MISSING
+require_marker Dockerfile.dapper 'ARG GO_LINUX_ARM64_SHA256=51798d2c42d0e1c6ed7fd9f48728b4193abac9e8aad6dbac2fe96a81f5909bda' EXTERNAL_DNS_GO_ARM64_SHA_MISSING
 require_marker Dockerfile.dapper 'ARG DOCKER_VERSION=29.7.2' EXTERNAL_DNS_DOCKER_VERSION_NOT_CURRENT
 require_marker Dockerfile.dapper 'ARG DOCKER_LINUX_AMD64_SHA256=803d433f226db4776e1768fd319fc6c6e4935a456acf84fcc0080818b854bc8f' EXTERNAL_DNS_DOCKER_AMD64_SHA_MISSING
 require_marker Dockerfile.dapper 'ARG DOCKER_LINUX_ARM64_SHA256=43d143448adf2c2787704e7d7704fd6d62d367a54c5edaef0a3f75509cb0938d' EXTERNAL_DNS_DOCKER_ARM64_SHA_MISSING
@@ -37,34 +41,70 @@ reject_marker Dockerfile.dapper 'curl -fsSL "https://download.docker.com' EXTERN
 require_marker package/Dockerfile 'USER 10001:10001' EXTERNAL_DNS_RUNTIME_NOT_NON_ROOT
 require_marker ubuntu-apt.lock "UBUNTU_APT_SNAPSHOT='20260808T000000Z'" EXTERNAL_DNS_APT_SNAPSHOT_MISSING
 require_marker Dockerfile.dapper 'ca-certificates="${UBUNTU_APT_CA_CERTIFICATES_VERSION}"' EXTERNAL_DNS_BUILD_APT_LOCK_MISSING
-require_marker package/Dockerfile 'ca-certificates="${UBUNTU_APT_CA_CERTIFICATES_VERSION}"' EXTERNAL_DNS_RUNTIME_APT_LOCK_MISSING
+require_marker package/Dockerfile 'ARG ALPINE_IMAGE=alpine:3.23@sha256:1beb0dc0a51de7ff38e3b5274078a2e0b81113ba5c7535e1a03d5913a5edbda3' EXTERNAL_DNS_RUNTIME_BASE_NOT_PINNED
+require_marker package/Dockerfile 'bash=5.3.3-r1' EXTERNAL_DNS_RUNTIME_BASH_NOT_PINNED
+require_marker package/Dockerfile 'ca-certificates=20260611-r0' EXTERNAL_DNS_RUNTIME_CA_NOT_PINNED
+reject_marker package/Dockerfile 'apt-get' EXTERNAL_DNS_RUNTIME_APT_PRESENT
 require_marker package/Dockerfile 'org.opencontainers.image.version="${VERSION}"' EXTERNAL_DNS_OCI_VERSION_MISSING
 require_marker package/Dockerfile 'org.opencontainers.image.revision="${REVISION}"' EXTERNAL_DNS_OCI_REVISION_MISSING
-require_marker scripts/build 'go build -trimpath -ldflags "-buildid=' EXTERNAL_DNS_REPRODUCIBLE_BUILD_FLAGS_MISSING
+require_marker scripts/build 'go build -mod=vendor -trimpath -ldflags "-buildid=' EXTERNAL_DNS_REPRODUCIBLE_BUILD_FLAGS_MISSING
 require_marker scripts/version 'plain numeric semantic version' EXTERNAL_DNS_NUMERIC_VERSION_GATE_MISSING
-require_marker scripts/package 'test "${legal_count}" -eq 28' EXTERNAL_DNS_LEGAL_COUNT_GATE_MISSING
+require_marker scripts/package 'test "${legal_count}" -eq 59' EXTERNAL_DNS_LEGAL_COUNT_GATE_MISSING
+require_marker scripts/package 'mkdir -p ../dist' EXTERNAL_DNS_DIST_DIRECTORY_GATE_MISSING
+require_marker go.mod 'go 1.27.0' EXTERNAL_DNS_GO_MODULE_VERSION_MISSING
+require_marker go.mod 'github.com/aws/aws-sdk-go-v2/service/route53 v1.65.9' EXTERNAL_DNS_AWS_SDK_V2_ROUTE53_MISSING
+require_marker go.mod 'github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0' EXTERNAL_DNS_ALIDNS_V5_MISSING
+require_marker vendor/modules.txt '# github.com/aws/aws-sdk-go-v2/service/route53 v1.65.9' EXTERNAL_DNS_AWS_SDK_V2_VENDOR_MISSING
+require_marker vendor/modules.txt '# github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0' EXTERNAL_DNS_ALIDNS_V5_VENDOR_MISSING
+reject_marker go.mod 'github.com/aws/aws-sdk-go v1.' EXTERNAL_DNS_AWS_SDK_V1_PRESENT
+reject_marker providers/route53/route53.go 'github.com/aws/aws-sdk-go/' EXTERNAL_DNS_AWS_SDK_V1_IMPORT_PRESENT
+reject_marker providers/alidns/alidns.go 'github.com/denverdino/aliyungo' EXTERNAL_DNS_ALIYUNGO_IMPORT_PRESENT
 require_marker providers/route53/route53.go 'ROUTE53_ENDPOINT_URL' EXTERNAL_DNS_ROUTE53_ENDPOINT_OVERRIDE_MISSING
 require_marker main.go '_ "github.com/PastureStack/external-dns-sync/providers/route53"' EXTERNAL_DNS_ROUTE53_RUNTIME_REGISTRATION_MISSING
 require_marker internal/platformapi/client.go 'return http.ErrUseLastResponse' EXTERNAL_DNS_PLATFORM_REDIRECT_GATE_MISSING
 require_marker internal/platformapi/client.go 'type policyTransport struct' EXTERNAL_DNS_PLATFORM_ORIGIN_TRANSPORT_MISSING
 require_marker internal/platformapi/client.go 'isValidRedirectURL' EXTERNAL_DNS_PLATFORM_ORIGIN_VALIDATION_MISSING
 require_marker providers/infoblox/infoblox.go 'os.OpenInRoot(rootPath, relativePath)' EXTERNAL_DNS_INFOBLOX_SECRET_ROOT_MISSING
-require_marker providers/alidns/alidns.go 'int64(ttl) > maxInt32' EXTERNAL_DNS_ALIDNS_TTL_BOUND_MISSING
+require_marker providers/alidns/alidns.go 'return int64(ttl), nil' EXTERNAL_DNS_ALIDNS_TTL_VALIDATION_MISSING
 require_marker package/update-platform-ca 'CA_BUNDLE_PATH="${PLATFORM_CA_BUNDLE_PATH:-/tmp/pasturestack-ca-bundle.crt}"' EXTERNAL_DNS_NON_ROOT_CA_BUNDLE_MISSING
 require_marker package/entrypoint.sh 'export PLATFORM_URL="${PLATFORM_URL:-${CATTLE_URL:-}}"' EXTERNAL_DNS_AGENT_URL_MAPPING_MISSING
-require_marker README.md 'ghcr.io/pasturestack/external-dns-sync:v0.8.0' EXTERNAL_DNS_README_VERSION_TAG_MISSING
+require_marker README.md 'ghcr.io/pasturestack/external-dns-sync:v0.8.1' EXTERNAL_DNS_README_VERSION_TAG_MISSING
 require_marker metadata/metadata.go '"io.rancher.service.external_dns"' EXTERNAL_DNS_LEGACY_SERVICE_POLICY_LABEL_MISSING
 require_marker metadata/metadata.go '"io.rancher.host.external_dns"' EXTERNAL_DNS_LEGACY_HOST_POLICY_LABEL_MISSING
 require_marker metadata/metadata.go '"io.rancher.host.external_dns_ip"' EXTERNAL_DNS_LEGACY_HOST_ADDRESS_LABEL_MISSING
 require_marker metadata/metadata.go '"io.rancher.service.external_dns_name_template"' EXTERNAL_DNS_LEGACY_SERVICE_TEMPLATE_LABEL_MISSING
 
-legal_count=$(
-  git ls-files 'vendor/**' |
-    grep -E '(^|/)(LICENSE[^/]*|NOTICE[^/]*|COPYING[^/]*|COPYRIGHT[^/]*|AUTHORS[^/]*)$' |
-    wc -l
-)
-if [ "$legal_count" -ne 28 ]; then
-  printf 'EXTERNAL_DNS_LEGAL_FILE_COUNT_MISMATCH count=%s expected=28\n' "$legal_count" >&2
+legal_count=$(find vendor -type f \( \
+  -iname 'LICENSE*' -o \
+  -iname 'NOTICE*' -o \
+  -iname 'COPYING*' -o \
+  -iname 'COPYRIGHT*' -o \
+  -iname 'AUTHORS*' \
+\) | wc -l)
+if [ "$legal_count" -ne 59 ]; then
+  printf 'EXTERNAL_DNS_LEGAL_FILE_COUNT_MISMATCH count=%s expected=59\n' "$legal_count" >&2
+  failure_count=$((failure_count + 1))
+fi
+for legal_file in \
+  vendor/github.com/aws/aws-sdk-go-v2/LICENSE.txt \
+  vendor/github.com/aws/aws-sdk-go-v2/NOTICE.txt \
+  vendor/github.com/alibabacloud-go/alidns-20150109/v5/LICENSE; do
+  if [ ! -f "$legal_file" ]; then
+    printf 'EXTERNAL_DNS_REQUIRED_LEGAL_FILE_MISSING file=%s\n' "$legal_file" >&2
+    failure_count=$((failure_count + 1))
+  fi
+done
+
+if [ -e vendor.conf ] || [ -L vendor.conf ]; then
+  printf 'EXTERNAL_DNS_LEGACY_VENDOR_CONF_PRESENT\n' >&2
+  failure_count=$((failure_count + 1))
+fi
+if [ -e vendor/github.com/aws/aws-sdk-go ] || [ -L vendor/github.com/aws/aws-sdk-go ]; then
+  printf 'EXTERNAL_DNS_AWS_SDK_V1_VENDOR_PRESENT\n' >&2
+  failure_count=$((failure_count + 1))
+fi
+if [ -e vendor/github.com/denverdino/aliyungo ] || [ -L vendor/github.com/denverdino/aliyungo ]; then
+  printf 'EXTERNAL_DNS_ALIYUNGO_VENDOR_PRESENT\n' >&2
   failure_count=$((failure_count + 1))
 fi
 
@@ -131,5 +171,5 @@ if [ "$failure_count" -ne 0 ]; then
   exit 1
 fi
 
-printf 'EXTERNAL_DNS_SOURCE_GATES_OK go=1.26.5 ubuntu=26.04 non_root=1 legal_files=%s endpoint_override=bounded\n' \
+printf 'EXTERNAL_DNS_SOURCE_GATES_OK go=1.27.0 build=ubuntu-26.04 runtime=alpine-3.23 non_root=1 legal_files=%s endpoint_override=bounded\n' \
   "$legal_count"

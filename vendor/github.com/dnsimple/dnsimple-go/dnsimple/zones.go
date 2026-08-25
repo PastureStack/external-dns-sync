@@ -1,6 +1,7 @@
 package dnsimple
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -14,12 +15,15 @@ type ZonesService struct {
 
 // Zone represents a Zone in DNSimple.
 type Zone struct {
-	ID        int64    `json:"id,omitempty"`
-	AccountID int64    `json:"account_id,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Reverse   bool   `json:"reverse,omitempty"`
-	CreatedAt string `json:"created_at,omitempty"`
-	UpdatedAt string `json:"updated_at,omitempty"`
+	ID                int64  `json:"id,omitempty"`
+	AccountID         int64  `json:"account_id,omitempty"`
+	Name              string `json:"name,omitempty"`
+	Reverse           bool   `json:"reverse,omitempty"`
+	Secondary         bool   `json:"secondary,omitempty"`
+	LastTransferredAt string `json:"last_transferred_at,omitempty"`
+	Active            bool   `json:"active,omitempty"`
+	CreatedAt         string `json:"created_at,omitempty"`
+	UpdatedAt         string `json:"updated_at,omitempty"`
 }
 
 // ZoneFile represents a Zone File in DNSimple.
@@ -27,20 +31,20 @@ type ZoneFile struct {
 	Zone string `json:"zone,omitempty"`
 }
 
-// zoneResponse represents a response from an API method that returns a Zone struct.
-type zoneResponse struct {
+// ZoneResponse represents a response from an API method that returns a Zone struct.
+type ZoneResponse struct {
 	Response
 	Data *Zone `json:"data"`
 }
 
-// zonesResponse represents a response from an API method that returns a collection of Zone struct.
-type zonesResponse struct {
+// ZonesResponse represents a response from an API method that returns a collection of Zone struct.
+type ZonesResponse struct {
 	Response
 	Data []Zone `json:"data"`
 }
 
-// zoneFileResponse represents a response from an API method that returns a ZoneFile struct.
-type zoneFileResponse struct {
+// ZoneFileResponse represents a response from an API method that returns a ZoneFile struct.
+type ZoneFileResponse struct {
 	Response
 	Data *ZoneFile `json:"data"`
 }
@@ -49,60 +53,92 @@ type zoneFileResponse struct {
 // to customize the ZonesService.ListZones method.
 type ZoneListOptions struct {
 	// Select domains where the name contains given string.
-	NameLike string `url:"name_like,omitempty"`
+	NameLike *string `url:"name_like,omitempty"`
 
 	ListOptions
 }
 
 // ListZones the zones for an account.
 //
-// See https://developer.dnsimple.com/v2/zones/#list
-func (s *ZonesService) ListZones(accountID string, options *ZoneListOptions) (*zonesResponse, error) {
+// See https://developer.dnsimple.com/v2/zones/#listZones
+func (s *ZonesService) ListZones(ctx context.Context, accountID string, options *ZoneListOptions) (*ZonesResponse, error) {
 	path := versioned(fmt.Sprintf("/%v/zones", accountID))
-	zonesResponse := &zonesResponse{}
+	zonesResponse := &ZonesResponse{}
 
 	path, err := addURLQueryOptions(path, options)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := s.client.get(path, zonesResponse)
+	resp, err := s.client.get(ctx, path, zonesResponse)
 	if err != nil {
 		return zonesResponse, err
 	}
 
-	zonesResponse.HttpResponse = resp
+	zonesResponse.HTTPResponse = resp
 	return zonesResponse, nil
 }
 
 // GetZone fetches a zone.
 //
-// See https://developer.dnsimple.com/v2/zones/#get
-func (s *ZonesService) GetZone(accountID string, zoneName string) (*zoneResponse, error) {
+// See https://developer.dnsimple.com/v2/zones/#getZone
+func (s *ZonesService) GetZone(ctx context.Context, accountID string, zoneName string) (*ZoneResponse, error) {
 	path := versioned(fmt.Sprintf("/%v/zones/%v", accountID, zoneName))
-	zoneResponse := &zoneResponse{}
+	zoneResponse := &ZoneResponse{}
 
-	resp, err := s.client.get(path, zoneResponse)
+	resp, err := s.client.get(ctx, path, zoneResponse)
 	if err != nil {
 		return nil, err
 	}
 
-	zoneResponse.HttpResponse = resp
+	zoneResponse.HTTPResponse = resp
 	return zoneResponse, nil
 }
 
 // GetZoneFile fetches a zone file.
 //
-// See https://developer.dnsimple.com/v2/zones/#get-file
-func (s *ZonesService) GetZoneFile(accountID string, zoneName string) (*zoneFileResponse, error) {
+// See https://developer.dnsimple.com/v2/zones/#getZoneFile
+func (s *ZonesService) GetZoneFile(ctx context.Context, accountID string, zoneName string) (*ZoneFileResponse, error) {
 	path := versioned(fmt.Sprintf("/%v/zones/%v/file", accountID, zoneName))
-	zoneFileResponse := &zoneFileResponse{}
+	zoneFileResponse := &ZoneFileResponse{}
 
-	resp, err := s.client.get(path, zoneFileResponse)
+	resp, err := s.client.get(ctx, path, zoneFileResponse)
 	if err != nil {
 		return nil, err
 	}
 
-	zoneFileResponse.HttpResponse = resp
+	zoneFileResponse.HTTPResponse = resp
 	return zoneFileResponse, nil
+}
+
+// ActivateZoneDns activates DNS services for a zone.
+//
+// See https://developer.dnsimple.com/v2/zones/#activateZoneService
+func (s *ZonesService) ActivateZoneDns(ctx context.Context, accountID string, zoneName string) (*ZoneResponse, error) {
+	path := versioned(fmt.Sprintf("/%v/zones/%v/activation", accountID, zoneName))
+	zoneResponse := &ZoneResponse{}
+
+	resp, err := s.client.put(ctx, path, nil, zoneResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	zoneResponse.HTTPResponse = resp
+	return zoneResponse, nil
+}
+
+// DeactivateZoneDns deactivates DNS services for a zone.
+//
+// See https://developer.dnsimple.com/v2/zones/#deactivateZoneService
+func (s *ZonesService) DeactivateZoneDns(ctx context.Context, accountID string, zoneName string) (*ZoneResponse, error) {
+	path := versioned(fmt.Sprintf("/%v/zones/%v/activation", accountID, zoneName))
+	zoneResponse := &ZoneResponse{}
+
+	resp, err := s.client.delete(ctx, path, nil, zoneResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	zoneResponse.HTTPResponse = resp
+	return zoneResponse, nil
 }

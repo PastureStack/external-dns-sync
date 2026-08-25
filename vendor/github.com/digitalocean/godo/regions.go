@@ -1,10 +1,15 @@
 package godo
 
+import (
+	"context"
+	"net/http"
+)
+
 // RegionsService is an interface for interfacing with the regions
 // endpoints of the DigitalOcean API
-// See: https://developers.digitalocean.com/documentation/v2#regions
+// See: https://docs.digitalocean.com/reference/api/api-reference/#tag/Regions
 type RegionsService interface {
-	List(*ListOptions) ([]Region, *Response, error)
+	List(context.Context, *ListOptions) ([]Region, *Response, error)
 }
 
 // RegionsServiceOp handles communication with the region related methods of the
@@ -27,10 +32,7 @@ type Region struct {
 type regionsRoot struct {
 	Regions []Region
 	Links   *Links `json:"links"`
-}
-
-type regionRoot struct {
-	Region *Region
+	Meta    *Meta  `json:"meta"`
 }
 
 func (r Region) String() string {
@@ -38,25 +40,28 @@ func (r Region) String() string {
 }
 
 // List all regions
-func (s *RegionsServiceOp) List(opt *ListOptions) ([]Region, *Response, error) {
+func (s *RegionsServiceOp) List(ctx context.Context, opt *ListOptions) ([]Region, *Response, error) {
 	path := "v2/regions"
 	path, err := addOptions(path, opt)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	req, err := s.client.NewRequest("GET", path, nil)
+	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	root := new(regionsRoot)
-	resp, err := s.client.Do(req, root)
+	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		return nil, resp, err
 	}
 	if l := root.Links; l != nil {
 		resp.Links = l
+	}
+	if m := root.Meta; m != nil {
+		resp.Meta = m
 	}
 
 	return root.Regions, resp, err

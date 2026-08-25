@@ -1,15 +1,19 @@
 package dnsimple
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // DelegationSignerRecord represents a delegation signer record for a domain in DNSimple.
 type DelegationSignerRecord struct {
 	ID         int64  `json:"id,omitempty"`
 	DomainID   int64  `json:"domain_id,omitempty"`
 	Algorithm  string `json:"algorithm"`
-	Digest     string `json:"digest"`
-	DigestType string `json:"digest_type"`
-	Keytag     string `json:"keytag"`
+	Digest     string `json:"digest,omitempty"`
+	DigestType string `json:"digest_type,omitempty"`
+	Keytag     string `json:"keytag,omitempty"`
+	PublicKey  string `json:"public_key,omitempty"`
 	CreatedAt  string `json:"created_at,omitempty"`
 	UpdatedAt  string `json:"updated_at,omitempty"`
 }
@@ -22,14 +26,14 @@ func delegationSignerRecordPath(accountID string, domainIdentifier string, dsRec
 	return
 }
 
-// delegationSignerRecordResponse represents a response from an API method that returns a DelegationSignerRecord struct.
-type delegationSignerRecordResponse struct {
+// DelegationSignerRecordResponse represents a response from an API method that returns a DelegationSignerRecord struct.
+type DelegationSignerRecordResponse struct {
 	Response
 	Data *DelegationSignerRecord `json:"data"`
 }
 
-// delegationSignerRecordResponse represents a response from an API method that returns a DelegationSignerRecord struct.
-type delegationSignerRecordsResponse struct {
+// DelegationSignerRecordsResponse represents a response from an API method that returns a DelegationSignerRecord struct.
+type DelegationSignerRecordsResponse struct {
 	Response
 	Data []DelegationSignerRecord `json:"data"`
 }
@@ -37,53 +41,53 @@ type delegationSignerRecordsResponse struct {
 // ListDelegationSignerRecords lists the delegation signer records for a domain.
 //
 // See https://developer.dnsimple.com/v2/domains/dnssec/#ds-record-list
-func (s *DomainsService) ListDelegationSignerRecords(accountID string, domainIdentifier string, options *ListOptions) (*delegationSignerRecordsResponse, error) {
+func (s *DomainsService) ListDelegationSignerRecords(ctx context.Context, accountID string, domainIdentifier string, options *ListOptions) (*DelegationSignerRecordsResponse, error) {
 	path := versioned(delegationSignerRecordPath(accountID, domainIdentifier, 0))
-	dsRecordsResponse := &delegationSignerRecordsResponse{}
+	dsRecordsResponse := &DelegationSignerRecordsResponse{}
 
 	path, err := addURLQueryOptions(path, options)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := s.client.get(path, dsRecordsResponse)
+	resp, err := s.client.get(ctx, path, dsRecordsResponse)
 	if err != nil {
 		return nil, err
 	}
 
-	dsRecordsResponse.HttpResponse = resp
+	dsRecordsResponse.HTTPResponse = resp
 	return dsRecordsResponse, nil
 }
 
 // CreateDelegationSignerRecord creates a new delegation signer record.
 //
 // See https://developer.dnsimple.com/v2/domains/dnssec/#ds-record-create
-func (s *DomainsService) CreateDelegationSignerRecord(accountID string, domainIdentifier string, dsRecordAttributes DelegationSignerRecord) (*delegationSignerRecordResponse, error) {
+func (s *DomainsService) CreateDelegationSignerRecord(ctx context.Context, accountID string, domainIdentifier string, dsRecordAttributes DelegationSignerRecord) (*DelegationSignerRecordResponse, error) {
 	path := versioned(delegationSignerRecordPath(accountID, domainIdentifier, 0))
-	dsRecordResponse := &delegationSignerRecordResponse{}
+	dsRecordResponse := &DelegationSignerRecordResponse{}
 
-	resp, err := s.client.post(path, dsRecordAttributes, dsRecordResponse)
+	resp, err := s.client.post(ctx, path, dsRecordAttributes, dsRecordResponse)
 	if err != nil {
 		return nil, err
 	}
 
-	dsRecordResponse.HttpResponse = resp
+	dsRecordResponse.HTTPResponse = resp
 	return dsRecordResponse, nil
 }
 
 // GetDelegationSignerRecord fetches a delegation signer record.
 //
 // See https://developer.dnsimple.com/v2/domains/dnssec/#ds-record-get
-func (s *DomainsService) GetDelegationSignerRecord(accountID string, domainIdentifier string, dsRecordID int64) (*delegationSignerRecordResponse, error) {
+func (s *DomainsService) GetDelegationSignerRecord(ctx context.Context, accountID string, domainIdentifier string, dsRecordID int64) (*DelegationSignerRecordResponse, error) {
 	path := versioned(delegationSignerRecordPath(accountID, domainIdentifier, dsRecordID))
-	dsRecordResponse := &delegationSignerRecordResponse{}
+	dsRecordResponse := &DelegationSignerRecordResponse{}
 
-	resp, err := s.client.get(path, dsRecordResponse)
+	resp, err := s.client.get(ctx, path, dsRecordResponse)
 	if err != nil {
 		return nil, err
 	}
 
-	dsRecordResponse.HttpResponse = resp
+	dsRecordResponse.HTTPResponse = resp
 	return dsRecordResponse, nil
 }
 
@@ -91,15 +95,15 @@ func (s *DomainsService) GetDelegationSignerRecord(accountID string, domainIdent
 // from the domain.
 //
 // See https://developer.dnsimple.com/v2/domains/dnssec/#ds-record-delete
-func (s *DomainsService) DeleteDelegationSignerRecord(accountID string, domainIdentifier string, dsRecordID int64) (*delegationSignerRecordResponse, error) {
+func (s *DomainsService) DeleteDelegationSignerRecord(ctx context.Context, accountID string, domainIdentifier string, dsRecordID int64) (*DelegationSignerRecordResponse, error) {
 	path := versioned(delegationSignerRecordPath(accountID, domainIdentifier, dsRecordID))
-	dsRecordResponse := &delegationSignerRecordResponse{}
+	dsRecordResponse := &DelegationSignerRecordResponse{}
 
-	resp, err := s.client.delete(path, nil, nil)
+	resp, err := s.client.delete(ctx, path, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	dsRecordResponse.HttpResponse = resp
+	dsRecordResponse.HTTPResponse = resp
 	return dsRecordResponse, nil
 }

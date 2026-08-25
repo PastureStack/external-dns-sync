@@ -35,7 +35,10 @@ done < <(find ../vendor -type f \( \
 \) -print0 | sort -z)
 
 legal_count=$(find third-party-licenses -type f | wc -l)
-test "${legal_count}" -eq 28
+test "${legal_count}" -eq 59
+test -f third-party-licenses/github.com/aws/aws-sdk-go-v2/LICENSE.txt
+test -f third-party-licenses/github.com/aws/aws-sdk-go-v2/NOTICE.txt
+test -f third-party-licenses/github.com/alibabacloud-go/alidns-20150109/v5/LICENSE
 
 IMAGE=${REPO}/external-dns-sync:${TAG}
 REVISION=${REVISION_OVERRIDE:-$(git -C .. rev-parse HEAD)}
@@ -44,5 +47,6 @@ docker build --pull \
     --build-arg VERSION="${VERSION}" \
     --build-arg REVISION="${REVISION}" \
     -t "${IMAGE}" .
+mkdir -p ../dist
 echo ${IMAGE} > ../dist/images
 echo Built ${IMAGE}

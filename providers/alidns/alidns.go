@@ -5,16 +5,27 @@ package alidns
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/PastureStack/external-dns-sync/providers"
 	"github.com/PastureStack/external-dns-sync/utils"
-	api "github.com/denverdino/aliyungo/dns"
+	alidns "github.com/alibabacloud-go/alidns-20150109/v5/client"
+	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/utils"
 	"github.com/sirupsen/logrus"
 )
 
+const alidnsEndpoint = "alidns.aliyuncs.com"
+
+type alidnsClient interface {
+	DescribeDomainInfo(*alidns.DescribeDomainInfoRequest) (*alidns.DescribeDomainInfoResponse, error)
+	DescribeDomainRecords(*alidns.DescribeDomainRecordsRequest) (*alidns.DescribeDomainRecordsResponse, error)
+	AddDomainRecord(*alidns.AddDomainRecordRequest) (*alidns.AddDomainRecordResponse, error)
+	DeleteDomainRecord(*alidns.DeleteDomainRecordRequest) (*alidns.DeleteDomainRecordResponse, error)
+}
+
 type AlidnsProvider struct {
-	client         *api.Client
+	client         alidnsClient
 	rootDomainName string
 }
 
@@ -23,51 +34,58 @@ func init() {
 }
 
 func (a *AlidnsProvider) Init(rootDomainName string) error {
-	accessKey := os.Getenv("ALICLOUD_ACCESS_KEY_ID")
-	if len(accessKey) == 0 {
+	accessKey := strings.TrimSpace(os.Getenv("ALICLOUD_ACCESS_KEY_ID"))
+	if accessKey == "" {
 		return fmt.Errorf("ALICLOUD_ACCESS_KEY_ID is not set")
 	}
 
-	secretKey := os.Getenv("ALICLOUD_ACCESS_KEY_SECRET")
-	if len(secretKey) == 0 {
+	secretKey := strings.TrimSpace(os.Getenv("ALICLOUD_ACCESS_KEY_SECRET"))
+	if secretKey == "" {
 		return fmt.Errorf("ALICLOUD_ACCESS_KEY_SECRET is not set")
 	}
 
-	a.client = api.NewClient(accessKey, secretKey)
+	client, err := alidns.NewClient(&openapi.Config{
+		AccessKeyId:     stringPointer(accessKey),
+		AccessKeySecret: stringPointer(secretKey),
+		Endpoint:        stringPointer(alidnsEndpoint),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create Alibaba Cloud DNS client: %w", err)
+	}
+	a.client = client
 	a.rootDomainName = utils.UnFqdn(rootDomainName)
 
-	if _, err := a.client.DescribeDomainInfo(&api.DescribeDomainInfoArgs{
-		DomainName: a.rootDomainName,
+	if _, err := a.client.DescribeDomainInfo(&alidns.DescribeDomainInfoRequest{
+		DomainName: stringPointer(a.rootDomainName),
 	}); err != nil {
-		return fmt.Errorf("Failed to describe root domain name for '%s': %v", a.rootDomainName, err)
+		return fmt.Errorf("failed to describe root domain %q: %w", a.rootDomainName, err)
 	}
 
 	logrus.Infof("Configured %s with zone '%s'", a.GetName(), a.rootDomainName)
 	return nil
 }
 
-func (a *AlidnsProvider) GetName() string {
+func (*AlidnsProvider) GetName() string {
 	return "AliDNS"
 }
 
 func (a *AlidnsProvider) HealthCheck() error {
-	_, err := a.client.DescribeDomainInfo(&api.DescribeDomainInfoArgs{
-		DomainName: a.rootDomainName,
+	_, err := a.client.DescribeDomainInfo(&alidns.DescribeDomainInfoRequest{
+		DomainName: stringPointer(a.rootDomainName),
 	})
 	return err
 }
 
 func (a *AlidnsProvider) AddRecord(record utils.DnsRecord) error {
-	for _, rec := range record.Records {
-		r, err := a.prepareRecord(record, rec)
+	for _, value := range record.Records {
+		request, err := a.prepareRecord(record, value)
 		if err != nil {
 			return err
 		}
-		if _, err := a.client.AddDomainRecord(r); err != nil {
-			return fmt.Errorf("Alibaba Cloud API call has failed: %v", err)
+		if _, err := a.client.AddDomainRecord(request); err != nil {
+			return fmt.Errorf("Alibaba Cloud API call has failed: %w", err)
 		}
 	}
-
 	return nil
 }
 
@@ -75,7 +93,6 @@ func (a *AlidnsProvider) UpdateRecord(record utils.DnsRecord) error {
 	if err := a.RemoveRecord(record); err != nil {
 		return err
 	}
-
 	return a.AddRecord(record)
 }
 
@@ -85,106 +102,166 @@ func (a *AlidnsProvider) RemoveRecord(record utils.DnsRecord) error {
 		return err
 	}
 
-	for _, rec := range records {
-		if _, err := a.client.DeleteDomainRecord(&api.DeleteDomainRecordArgs{
-			RecordId: rec.RecordId,
+	for _, current := range records {
+		if current == nil || current.RecordId == nil || strings.TrimSpace(*current.RecordId) == "" {
+			return fmt.Errorf("Alibaba Cloud returned a matching DNS record without an ID")
+		}
+		if _, err := a.client.DeleteDomainRecord(&alidns.DeleteDomainRecordRequest{
+			RecordId: current.RecordId,
 		}); err != nil {
-			return fmt.Errorf("Alibaba Cloud API call has failed: %v", err)
+			return fmt.Errorf("Alibaba Cloud API call has failed: %w", err)
 		}
 	}
-
 	return nil
 }
 
 func (a *AlidnsProvider) GetRecords() ([]utils.DnsRecord, error) {
-	var records []utils.DnsRecord
-	result, err := a.client.DescribeDomainRecords(&api.DescribeDomainRecordsArgs{
-		DomainName: a.rootDomainName,
-	})
+	apiRecords, err := a.listRecords()
 	if err != nil {
-		return records, fmt.Errorf("Alibaba Cloud API call has failed: %v", err)
+		return nil, err
 	}
 
-	recordMap := map[string]map[string][]string{}
-	recordTTLs := map[string]map[string]int{}
-
-	for _, rec := range result.DomainRecords.Record {
+	type recordKey struct {
+		fqdn       string
+		recordType string
+	}
+	grouped := make(map[recordKey]*utils.DnsRecord)
+	for _, current := range apiRecords {
+		if current == nil || current.RR == nil || current.Type == nil ||
+			current.Value == nil || current.TTL == nil {
+			logrus.Warn("Skipping incomplete AliDNS record response")
+			continue
+		}
+		rr := strings.TrimSpace(*current.RR)
 		var fqdn string
-		if rec.RR == "" {
+		if rr == "" || rr == "@" {
 			fqdn = a.rootDomainName + "."
 		} else {
-			fqdn = fmt.Sprintf("%s.%s.", rec.RR, a.rootDomainName)
+			fqdn = fmt.Sprintf("%s.%s.", rr, a.rootDomainName)
 		}
-
-		recordTTLs[fqdn] = map[string]int{}
-		recordTTLs[fqdn][rec.Type] = int(rec.TTL)
-		recordSet, exists := recordMap[fqdn]
-		if exists {
-			recordSlice, sliceExists := recordSet[rec.Type]
-			if sliceExists {
-				recordSlice = append(recordSlice, rec.Value)
-				recordSet[rec.Type] = recordSlice
-			} else {
-				recordSet[rec.Type] = []string{rec.Value}
-			}
-		} else {
-			recordMap[fqdn] = map[string][]string{}
-			recordMap[fqdn][rec.Type] = []string{rec.Value}
+		key := recordKey{fqdn: fqdn, recordType: *current.Type}
+		record, exists := grouped[key]
+		if !exists {
+			record = &utils.DnsRecord{Fqdn: fqdn, Type: *current.Type, TTL: int(*current.TTL)}
+			grouped[key] = record
 		}
+		record.Records = append(record.Records, *current.Value)
 	}
 
-	for fqdn, recordSet := range recordMap {
-		for recordType, recordSlice := range recordSet {
-			ttl := recordTTLs[fqdn][recordType]
-			record := utils.DnsRecord{Fqdn: fqdn, Records: recordSlice, Type: recordType, TTL: ttl}
-			records = append(records, record)
-		}
+	keys := make([]recordKey, 0, len(grouped))
+	for key := range grouped {
+		keys = append(keys, key)
 	}
-
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].fqdn == keys[j].fqdn {
+			return keys[i].recordType < keys[j].recordType
+		}
+		return keys[i].fqdn < keys[j].fqdn
+	})
+	records := make([]utils.DnsRecord, 0, len(keys))
+	for _, key := range keys {
+		records = append(records, *grouped[key])
+	}
 	return records, nil
 }
 
-func (a *AlidnsProvider) parseName(record utils.DnsRecord) string {
-	return strings.TrimSuffix(record.Fqdn, fmt.Sprintf(".%s.", a.rootDomainName))
+func (a *AlidnsProvider) parseName(record utils.DnsRecord) (string, error) {
+	fqdn := utils.UnFqdn(record.Fqdn)
+	if fqdn == a.rootDomainName {
+		return "@", nil
+	}
+	suffix := "." + a.rootDomainName
+	if !strings.HasSuffix(fqdn, suffix) {
+		return "", fmt.Errorf("AliDNS record %q is outside managed zone %q", record.Fqdn, a.rootDomainName)
+	}
+	rr := strings.TrimSuffix(fqdn, suffix)
+	if rr == "" {
+		return "@", nil
+	}
+	return rr, nil
 }
 
-func (a *AlidnsProvider) prepareRecord(record utils.DnsRecord, rec string) (*api.AddDomainRecordArgs, error) {
+func (a *AlidnsProvider) prepareRecord(record utils.DnsRecord, value string) (*alidns.AddDomainRecordRequest, error) {
 	ttl, err := checkedTTL(record.TTL)
 	if err != nil {
 		return nil, err
 	}
-	return &api.AddDomainRecordArgs{
-		DomainName: a.rootDomainName,
-		RR:         a.parseName(record),
-		Type:       record.Type,
-		Value:      rec,
-		TTL:        ttl,
+	rr, err := a.parseName(record)
+	if err != nil {
+		return nil, err
+	}
+	return &alidns.AddDomainRecordRequest{
+		DomainName: stringPointer(a.rootDomainName),
+		RR:         stringPointer(rr),
+		Type:       stringPointer(record.Type),
+		Value:      stringPointer(value),
+		TTL:        &ttl,
 	}, nil
 }
 
-func checkedTTL(ttl int) (int32, error) {
-	const maxInt32 = int64(1<<31 - 1)
-	if ttl <= 0 || int64(ttl) > maxInt32 {
-		return 0, fmt.Errorf("AliDNS TTL must be between 1 and %d seconds", maxInt32)
+func checkedTTL(ttl int) (int64, error) {
+	if ttl <= 0 {
+		return 0, fmt.Errorf("AliDNS TTL must be greater than zero")
 	}
-	return int32(ttl), nil
+	return int64(ttl), nil
 }
 
-func (a *AlidnsProvider) findRecords(record utils.DnsRecord) ([]api.RecordType, error) {
-	var records []api.RecordType
-	result, err := a.client.DescribeDomainRecords(&api.DescribeDomainRecordsArgs{
-		DomainName: a.rootDomainName,
-	})
+func (a *AlidnsProvider) findRecords(record utils.DnsRecord) ([]*alidns.DescribeDomainRecordsResponseBodyDomainRecordsRecord, error) {
+	records, err := a.listRecords()
 	if err != nil {
-		return records, fmt.Errorf("Alibaba Cloud API call has failed: %v", err)
+		return nil, err
 	}
-
-	name := a.parseName(record)
-	for _, rec := range result.DomainRecords.Record {
-		if rec.RR == name && rec.Type == record.Type {
-			records = append(records, rec)
+	name, err := a.parseName(record)
+	if err != nil {
+		return nil, err
+	}
+	matching := make([]*alidns.DescribeDomainRecordsResponseBodyDomainRecordsRecord, 0)
+	for _, current := range records {
+		if current != nil && current.RR != nil && current.Type != nil &&
+			*current.RR == name && *current.Type == record.Type {
+			matching = append(matching, current)
 		}
 	}
+	return matching, nil
+}
 
-	return records, nil
+func (a *AlidnsProvider) listRecords() ([]*alidns.DescribeDomainRecordsResponseBodyDomainRecordsRecord, error) {
+	const pageSize int64 = 500
+	all := make([]*alidns.DescribeDomainRecordsResponseBodyDomainRecordsRecord, 0)
+	for pageNumber := int64(1); ; pageNumber++ {
+		response, err := a.client.DescribeDomainRecords(&alidns.DescribeDomainRecordsRequest{
+			DomainName: stringPointer(a.rootDomainName),
+			PageNumber: &pageNumber,
+			PageSize:   int64Pointer(pageSize),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("Alibaba Cloud API call has failed: %w", err)
+		}
+		if response == nil || response.Body == nil || response.Body.DomainRecords == nil {
+			return nil, fmt.Errorf("Alibaba Cloud returned an incomplete DNS record response")
+		}
+		pageRecords := response.Body.DomainRecords.Record
+		all = append(all, pageRecords...)
+		if response.Body.TotalCount != nil {
+			if int64(len(all)) >= *response.Body.TotalCount {
+				break
+			}
+			if len(pageRecords) == 0 {
+				return nil, fmt.Errorf("Alibaba Cloud pagination ended before TotalCount was reached")
+			}
+			continue
+		}
+		if len(pageRecords) < int(pageSize) {
+			break
+		}
+	}
+	return all, nil
+}
+
+func stringPointer(value string) *string {
+	return &value
+}
+
+func int64Pointer(value int64) *int64 {
+	return &value
 }

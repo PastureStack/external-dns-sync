@@ -1,10 +1,15 @@
 package godo
 
+import (
+	"context"
+	"net/http"
+)
+
 // SizesService is an interface for interfacing with the size
 // endpoints of the DigitalOcean API
-// See: https://developers.digitalocean.com/documentation/v2#sizes
+// See: https://docs.digitalocean.com/reference/api/api-reference/#tag/Sizes
 type SizesService interface {
-	List(*ListOptions) ([]Size, *Response, error)
+	List(context.Context, *ListOptions) ([]Size, *Response, error)
 }
 
 // SizesServiceOp handles communication with the size related methods of the
@@ -17,15 +22,48 @@ var _ SizesService = &SizesServiceOp{}
 
 // Size represents a DigitalOcean Size
 type Size struct {
-	Slug         string   `json:"slug,omitempty"`
-	Memory       int      `json:"memory,omitempty"`
-	Vcpus        int      `json:"vcpus,omitempty"`
-	Disk         int      `json:"disk,omitempty"`
-	PriceMonthly float64  `json:"price_monthly,omitempty"`
-	PriceHourly  float64  `json:"price_hourly,omitempty"`
-	Regions      []string `json:"regions,omitempty"`
-	Available    bool     `json:"available,omitempty"`
-	Transfer     float64  `json:"transfer,omitempty"`
+	Slug         string     `json:"slug,omitempty"`
+	Memory       int        `json:"memory,omitempty"`
+	Vcpus        int        `json:"vcpus,omitempty"`
+	Disk         int        `json:"disk,omitempty"`
+	PriceMonthly float64    `json:"price_monthly,omitempty"`
+	PriceHourly  float64    `json:"price_hourly,omitempty"`
+	Regions      []string   `json:"regions,omitempty"`
+	Available    bool       `json:"available,omitempty"`
+	Transfer     float64    `json:"transfer,omitempty"`
+	Description  string     `json:"description,omitempty"`
+	GPUInfo      *GPUInfo   `json:"gpu_info,omitempty"`
+	DiskInfo     []DiskInfo `json:"disk_info,omitempty"`
+}
+
+// DiskInfo containing information about the disks available to Droplets created
+// with this size.
+type DiskInfo struct {
+	Type string    `json:"type,omitempty"`
+	Size *DiskSize `json:"size,omitempty"`
+}
+
+// DiskSize provides information about the size of a disk.
+type DiskSize struct {
+	Amount int    `json:"amount,omitempty"`
+	Unit   string `json:"unit,omitempty"`
+}
+
+// GPUInfo provides information about the GPU available to Droplets created with this size.
+type GPUInfo struct {
+	Count int    `json:"count,omitempty"`
+	VRAM  *VRAM  `json:"vram,omitempty"`
+	Model string `json:"model,omitempty"`
+	// SupportedPartitionModes lists the GPU partition modes available for this
+	// size. It is only returned to callers with access to the feature, so an
+	// empty/absent value means the partition-mode picker should be hidden.
+	SupportedPartitionModes []string `json:"supported_partition_modes,omitempty"`
+}
+
+// VRAM provides information about the amount of VRAM available to the GPU.
+type VRAM struct {
+	Amount int    `json:"amount,omitempty"`
+	Unit   string `json:"unit,omitempty"`
 }
 
 func (s Size) String() string {
@@ -35,28 +73,32 @@ func (s Size) String() string {
 type sizesRoot struct {
 	Sizes []Size
 	Links *Links `json:"links"`
+	Meta  *Meta  `json:"meta"`
 }
 
 // List all images
-func (s *SizesServiceOp) List(opt *ListOptions) ([]Size, *Response, error) {
+func (s *SizesServiceOp) List(ctx context.Context, opt *ListOptions) ([]Size, *Response, error) {
 	path := "v2/sizes"
 	path, err := addOptions(path, opt)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	req, err := s.client.NewRequest("GET", path, nil)
+	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	root := new(sizesRoot)
-	resp, err := s.client.Do(req, root)
+	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		return nil, resp, err
 	}
 	if l := root.Links; l != nil {
 		resp.Links = l
+	}
+	if m := root.Meta; m != nil {
+		resp.Meta = m
 	}
 
 	return root.Sizes, resp, err

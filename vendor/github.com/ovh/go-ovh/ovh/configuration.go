@@ -1,39 +1,84 @@
 package ovh
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
-	"path/filepath"
+	"runtime"
 	"strings"
 
+	"golang.org/x/oauth2/clientcredentials"
 	"gopkg.in/ini.v1"
 )
 
-// Use variables for easier test overload
-var (
-	systemConfigPath = "/etc/ovh.conf"
-	userConfigPath   = "/.ovh.conf" // prefixed with homeDir
-	localConfigPath  = "./ovh.conf"
-)
+var configPaths = []string{
+	// System wide configuration
+	"/etc/ovh.conf",
+	// Configuration in user's home
+	"~/.ovh.conf",
+	// Configuration in local folder
+	"./ovh.conf",
+}
 
-// currentUserHome attempts to get current user's home directory
+// currentUserHome attempts to get current user's home directory.
 func currentUserHome() (string, error) {
 	usr, err := user.Current()
 	if err != nil {
+		// Fallback by trying to read $HOME
+		if userHome := os.Getenv("HOME"); userHome != "" {
+			return userHome, nil
+		}
 		return "", err
 	}
+
 	return usr.HomeDir, nil
 }
 
-// appendConfigurationFile only if it exists. We need to do this because
-// ini package will fail to load configuration at all if a configuration
-// file is missing. This is racy, but better than always failing.
-func appendConfigurationFile(cfg *ini.File, path string) {
-	if file, err := os.Open(path); err == nil {
-		file.Close()
-		cfg.Append(path)
+// configPaths returns configPaths, with ~/ prefix expanded.
+func expandConfigPaths() []interface{} {
+	paths := []interface{}{}
+
+	// Will be initialized on first use
+	var home string
+	var homeErr error
+
+	for _, path := range configPaths {
+		if strings.HasPrefix(path, "~/") {
+			// Find home if needed
+			if home == "" && homeErr == nil {
+				home, homeErr = currentUserHome()
+			}
+			// Ignore file in HOME if we cannot find it
+			if homeErr != nil {
+				continue
+			}
+
+			path = home + path[1:]
+		}
+
+		paths = append(paths, path)
 	}
+
+	return paths
+}
+
+// loadINI builds a ini.File from the configuration paths provided in configPaths.
+// It's a helper for loadConfig.
+func loadINI() (*ini.File, error) {
+	// Don't try to load configuration from the
+	// filesystem when compiling for WebAssembly
+	if runtime.GOARCH == "wasm" && runtime.GOOS == "js" {
+		return ini.Empty(), nil
+	}
+
+	paths := expandConfigPaths()
+	if len(paths) == 0 {
+		return ini.Empty(), nil
+	}
+
+	return ini.LooseLoad(paths[0], paths[1:]...)
 }
 
 // loadConfig loads client configuration from params, environments or configuration
@@ -50,21 +95,25 @@ func appendConfigurationFile(cfg *ini.File, path string) {
 // - ./ovh.conf
 // - $HOME/.ovh.conf
 // - /etc/ovh.conf
-//
 func (c *Client) loadConfig(endpointName string) error {
+	if strings.HasSuffix(endpointName, "/") {
+		return fmt.Errorf("endpoint name cannot have a trailing slash")
+	}
+
 	// Load configuration files by order of increasing priority. All configuration
 	// files are optional. Only load file from user home if home could be resolve
-	cfg := ini.Empty()
-	appendConfigurationFile(cfg, systemConfigPath)
-	if home, err := currentUserHome(); err == nil {
-		userConfigFullPath := filepath.Join(home, userConfigPath)
-		appendConfigurationFile(cfg, userConfigFullPath)
+	cfg, err := loadINI()
+	if err != nil {
+		return fmt.Errorf("cannot load configuration: %w", err)
 	}
-	appendConfigurationFile(cfg, localConfigPath)
 
 	// Canonicalize configuration
 	if endpointName == "" {
 		endpointName = getConfigValue(cfg, "default", "endpoint", "ovh-eu")
+	}
+
+	if c.AccessToken == "" {
+		c.AccessToken = getConfigValue(cfg, endpointName, "access_token", "")
 	}
 
 	if c.AppKey == "" {
@@ -79,6 +128,41 @@ func (c *Client) loadConfig(endpointName string) error {
 		c.ConsumerKey = getConfigValue(cfg, endpointName, "consumer_key", "")
 	}
 
+	if c.ClientID == "" {
+		c.ClientID = getConfigValue(cfg, endpointName, "client_id", "")
+	}
+
+	if c.ClientSecret == "" {
+		c.ClientSecret = getConfigValue(cfg, endpointName, "client_secret", "")
+	}
+
+	configuredAuthMethods := []string{}
+	if c.AppKey != "" || c.AppSecret != "" || c.ConsumerKey != "" {
+		configuredAuthMethods = append(configuredAuthMethods, "application_key/application_secret")
+	}
+	if c.ClientID != "" || c.ClientSecret != "" {
+		configuredAuthMethods = append(configuredAuthMethods, "client_id/client_secret")
+	}
+	if c.AccessToken != "" {
+		configuredAuthMethods = append(configuredAuthMethods, "access_token")
+	}
+
+	if len(configuredAuthMethods) > 1 {
+		return fmt.Errorf("can't use multiple authentication methods: %s", strings.Join(configuredAuthMethods, ", "))
+	}
+	if len(configuredAuthMethods) == 0 {
+		return errors.New(
+			"missing authentication information, you need to provide one of the following: application_key/application_secret, client_id/client_secret, or access_token",
+		)
+	}
+
+	if (c.ClientID != "") != (c.ClientSecret != "") {
+		return errors.New("invalid oauth2 config, both client_id and client_secret must be given")
+	}
+	if (c.AppKey != "") != (c.AppSecret != "") {
+		return errors.New("invalid authentication config, both application_key and application_secret must be given")
+	}
+
 	// Load real endpoint URL by name. If endpoint contains a '/', consider it as a URL
 	if strings.Contains(endpointName, "/") {
 		c.endpoint = endpointName
@@ -88,19 +172,28 @@ func (c *Client) loadConfig(endpointName string) error {
 
 	// If we still have no valid endpoint, AppKey or AppSecret, return an error
 	if c.endpoint == "" {
-		return fmt.Errorf("unknown endpoint '%s', consider checking 'Endpoints' list of using an URL", endpointName)
+		return fmt.Errorf("unknown endpoint '%s', consider checking 'Endpoints' list or using an URL", endpointName)
 	}
-	if c.AppKey == "" {
-		return fmt.Errorf("missing application key, please check your configuration or consult the documentation to create one")
-	}
-	if c.AppSecret == "" {
-		return fmt.Errorf("missing application secret, please check your configuration or consult the documentation to create one")
+
+	if c.ClientID != "" {
+		if _, ok := tokensURLs[c.endpoint]; !ok {
+			return fmt.Errorf("oauth2 authentication is not compatible with endpoint %q", c.endpoint)
+		}
+
+		conf := &clientcredentials.Config{
+			ClientID:     c.ClientID,
+			ClientSecret: c.ClientSecret,
+			TokenURL:     tokensURLs[c.endpoint],
+			Scopes:       []string{"all"},
+		}
+
+		c.oauth2TokenSource = conf.TokenSource(context.Background())
 	}
 
 	return nil
 }
 
-// getConfigValue returns the value of OVH_<NAME> or ``name`` value from ``section``. If
+// getConfigValue returns the value of OVH_<NAME> or "name" value from "section". If
 // the value could not be read from either env or any configuration files, return 'def'
 func getConfigValue(cfg *ini.File, section, name, def string) string {
 	// Attempt to load from environment
@@ -109,9 +202,17 @@ func getConfigValue(cfg *ini.File, section, name, def string) string {
 		return fromEnv
 	}
 
+	if !cfg.HasSection(section) {
+		return def
+	}
+
 	// Attempt to load from configuration
 	fromSection := cfg.Section(section)
 	if fromSection == nil {
+		return def
+	}
+
+	if !fromSection.HasKey(name) {
 		return def
 	}
 

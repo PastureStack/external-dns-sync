@@ -1,0 +1,418 @@
+// This file is auto-generated, don't edit it. Thanks.
+package client
+
+import (
+	"github.com/alibabacloud-go/tea/dara"
+)
+
+type iDescribeGtmInstanceAddressPoolResponseBody interface {
+	dara.Model
+	String() string
+	GoString() string
+	SetAddrCount(v int32) *DescribeGtmInstanceAddressPoolResponseBody
+	GetAddrCount() *int32
+	SetAddrPoolId(v string) *DescribeGtmInstanceAddressPoolResponseBody
+	GetAddrPoolId() *string
+	SetAddrs(v *DescribeGtmInstanceAddressPoolResponseBodyAddrs) *DescribeGtmInstanceAddressPoolResponseBody
+	GetAddrs() *DescribeGtmInstanceAddressPoolResponseBodyAddrs
+	SetCreateTime(v string) *DescribeGtmInstanceAddressPoolResponseBody
+	GetCreateTime() *string
+	SetCreateTimestamp(v int64) *DescribeGtmInstanceAddressPoolResponseBody
+	GetCreateTimestamp() *int64
+	SetMinAvailableAddrNum(v int32) *DescribeGtmInstanceAddressPoolResponseBody
+	GetMinAvailableAddrNum() *int32
+	SetMonitorConfigId(v string) *DescribeGtmInstanceAddressPoolResponseBody
+	GetMonitorConfigId() *string
+	SetMonitorStatus(v string) *DescribeGtmInstanceAddressPoolResponseBody
+	GetMonitorStatus() *string
+	SetName(v string) *DescribeGtmInstanceAddressPoolResponseBody
+	GetName() *string
+	SetRequestId(v string) *DescribeGtmInstanceAddressPoolResponseBody
+	GetRequestId() *string
+	SetStatus(v string) *DescribeGtmInstanceAddressPoolResponseBody
+	GetStatus() *string
+	SetType(v string) *DescribeGtmInstanceAddressPoolResponseBody
+	GetType() *string
+	SetUpdateTime(v string) *DescribeGtmInstanceAddressPoolResponseBody
+	GetUpdateTime() *string
+	SetUpdateTimestamp(v int64) *DescribeGtmInstanceAddressPoolResponseBody
+	GetUpdateTimestamp() *int64
+}
+
+type DescribeGtmInstanceAddressPoolResponseBody struct {
+	// The number of addresses in the address pool.
+	//
+	// example:
+	//
+	// 2
+	AddrCount *int32 `json:"AddrCount,omitempty" xml:"AddrCount,omitempty"`
+	// The ID of the address pool.
+	//
+	// example:
+	//
+	// 1234abc
+	AddrPoolId *string                                          `json:"AddrPoolId,omitempty" xml:"AddrPoolId,omitempty"`
+	Addrs      *DescribeGtmInstanceAddressPoolResponseBodyAddrs `json:"Addrs,omitempty" xml:"Addrs,omitempty" type:"Struct"`
+	// The time when the address pool was created.
+	//
+	// example:
+	//
+	// 2017-12-28T13:08Z
+	CreateTime *string `json:"CreateTime,omitempty" xml:"CreateTime,omitempty"`
+	// The time when the address pool was created. This is a UNIX timestamp.
+	//
+	// example:
+	//
+	// 1527690629357
+	CreateTimestamp *int64 `json:"CreateTimestamp,omitempty" xml:"CreateTimestamp,omitempty"`
+	// The minimum number of available addresses.
+	//
+	// example:
+	//
+	// 1
+	MinAvailableAddrNum *int32 `json:"MinAvailableAddrNum,omitempty" xml:"MinAvailableAddrNum,omitempty"`
+	// The ID of the monitoring configuration.
+	//
+	// example:
+	//
+	// 100abc
+	MonitorConfigId *string `json:"MonitorConfigId,omitempty" xml:"MonitorConfigId,omitempty"`
+	// The monitoring status. Valid values:
+	//
+	// - **OPEN**: Enabled
+	//
+	// - **CLOSE**: Disabled
+	//
+	// - **UNCONFIGURED**: Not configured
+	//
+	// example:
+	//
+	// OPEN
+	MonitorStatus *string `json:"MonitorStatus,omitempty" xml:"MonitorStatus,omitempty"`
+	// The name of the address pool.
+	//
+	// example:
+	//
+	// 名称
+	Name *string `json:"Name,omitempty" xml:"Name,omitempty"`
+	// The unique request ID.
+	//
+	// example:
+	//
+	// 6856BCF6-11D6-4D7E-AC53-FD579933522B
+	RequestId *string `json:"RequestId,omitempty" xml:"RequestId,omitempty"`
+	// The availability status of the address pool. Valid values:
+	//
+	// - **AVAILABLE**: The address pool is available.
+	//
+	// - **NOT_AVAILABLE**: The address pool is unavailable.
+	//
+	// example:
+	//
+	// AVAILABLE
+	Status *string `json:"Status,omitempty" xml:"Status,omitempty"`
+	// The type of the address pool. Valid values:
+	//
+	// - **IP**: IP address
+	//
+	// - **DOMAIN**: Domain name
+	//
+	// example:
+	//
+	// IP
+	Type *string `json:"Type,omitempty" xml:"Type,omitempty"`
+	// The time when the address pool was last updated.
+	//
+	// example:
+	//
+	// 2017-12-28T13:08Z
+	UpdateTime *string `json:"UpdateTime,omitempty" xml:"UpdateTime,omitempty"`
+	// The time when the address pool was last updated. This is a UNIX timestamp.
+	//
+	// example:
+	//
+	// 1527690629357
+	UpdateTimestamp *int64 `json:"UpdateTimestamp,omitempty" xml:"UpdateTimestamp,omitempty"`
+}
+
+func (s DescribeGtmInstanceAddressPoolResponseBody) String() string {
+	return dara.Prettify(s)
+}
+
+func (s DescribeGtmInstanceAddressPoolResponseBody) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetAddrCount() *int32 {
+	return s.AddrCount
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetAddrPoolId() *string {
+	return s.AddrPoolId
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetAddrs() *DescribeGtmInstanceAddressPoolResponseBodyAddrs {
+	return s.Addrs
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetCreateTime() *string {
+	return s.CreateTime
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetCreateTimestamp() *int64 {
+	return s.CreateTimestamp
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetMinAvailableAddrNum() *int32 {
+	return s.MinAvailableAddrNum
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetMonitorConfigId() *string {
+	return s.MonitorConfigId
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetMonitorStatus() *string {
+	return s.MonitorStatus
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetName() *string {
+	return s.Name
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetRequestId() *string {
+	return s.RequestId
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetStatus() *string {
+	return s.Status
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetType() *string {
+	return s.Type
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetUpdateTime() *string {
+	return s.UpdateTime
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) GetUpdateTimestamp() *int64 {
+	return s.UpdateTimestamp
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetAddrCount(v int32) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.AddrCount = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetAddrPoolId(v string) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.AddrPoolId = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetAddrs(v *DescribeGtmInstanceAddressPoolResponseBodyAddrs) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.Addrs = v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetCreateTime(v string) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.CreateTime = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetCreateTimestamp(v int64) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.CreateTimestamp = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetMinAvailableAddrNum(v int32) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.MinAvailableAddrNum = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetMonitorConfigId(v string) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.MonitorConfigId = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetMonitorStatus(v string) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.MonitorStatus = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetName(v string) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.Name = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetRequestId(v string) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.RequestId = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetStatus(v string) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.Status = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetType(v string) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.Type = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetUpdateTime(v string) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.UpdateTime = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) SetUpdateTimestamp(v int64) *DescribeGtmInstanceAddressPoolResponseBody {
+	s.UpdateTimestamp = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBody) Validate() error {
+	if s.Addrs != nil {
+		if err := s.Addrs.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type DescribeGtmInstanceAddressPoolResponseBodyAddrs struct {
+	Addr []*DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr `json:"Addr,omitempty" xml:"Addr,omitempty" type:"Repeated"`
+}
+
+func (s DescribeGtmInstanceAddressPoolResponseBodyAddrs) String() string {
+	return dara.Prettify(s)
+}
+
+func (s DescribeGtmInstanceAddressPoolResponseBodyAddrs) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrs) GetAddr() []*DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr {
+	return s.Addr
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrs) SetAddr(v []*DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) *DescribeGtmInstanceAddressPoolResponseBodyAddrs {
+	s.Addr = v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrs) Validate() error {
+	if s.Addr != nil {
+		for _, item := range s.Addr {
+			if item != nil {
+				if err := item.Validate(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+type DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr struct {
+	AddrId          *int64  `json:"AddrId,omitempty" xml:"AddrId,omitempty"`
+	AlertStatus     *string `json:"AlertStatus,omitempty" xml:"AlertStatus,omitempty"`
+	CreateTime      *string `json:"CreateTime,omitempty" xml:"CreateTime,omitempty"`
+	CreateTimestamp *int64  `json:"CreateTimestamp,omitempty" xml:"CreateTimestamp,omitempty"`
+	LbaWeight       *int32  `json:"LbaWeight,omitempty" xml:"LbaWeight,omitempty"`
+	Mode            *string `json:"Mode,omitempty" xml:"Mode,omitempty"`
+	UpdateTime      *string `json:"UpdateTime,omitempty" xml:"UpdateTime,omitempty"`
+	UpdateTimestamp *int64  `json:"UpdateTimestamp,omitempty" xml:"UpdateTimestamp,omitempty"`
+	Value           *string `json:"Value,omitempty" xml:"Value,omitempty"`
+}
+
+func (s DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) String() string {
+	return dara.Prettify(s)
+}
+
+func (s DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) GoString() string {
+	return s.String()
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) GetAddrId() *int64 {
+	return s.AddrId
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) GetAlertStatus() *string {
+	return s.AlertStatus
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) GetCreateTime() *string {
+	return s.CreateTime
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) GetCreateTimestamp() *int64 {
+	return s.CreateTimestamp
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) GetLbaWeight() *int32 {
+	return s.LbaWeight
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) GetMode() *string {
+	return s.Mode
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) GetUpdateTime() *string {
+	return s.UpdateTime
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) GetUpdateTimestamp() *int64 {
+	return s.UpdateTimestamp
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) GetValue() *string {
+	return s.Value
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) SetAddrId(v int64) *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr {
+	s.AddrId = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) SetAlertStatus(v string) *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr {
+	s.AlertStatus = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) SetCreateTime(v string) *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr {
+	s.CreateTime = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) SetCreateTimestamp(v int64) *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr {
+	s.CreateTimestamp = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) SetLbaWeight(v int32) *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr {
+	s.LbaWeight = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) SetMode(v string) *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr {
+	s.Mode = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) SetUpdateTime(v string) *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr {
+	s.UpdateTime = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) SetUpdateTimestamp(v int64) *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr {
+	s.UpdateTimestamp = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) SetValue(v string) *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr {
+	s.Value = &v
+	return s
+}
+
+func (s *DescribeGtmInstanceAddressPoolResponseBodyAddrsAddr) Validate() error {
+	return dara.Validate(s)
+}

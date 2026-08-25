@@ -3,6 +3,7 @@ package digitalocean
 // Modified by PastureStack contributors for independent maintenance and rebranding.
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -47,7 +48,7 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 		AccessToken: pat,
 	}
 
-	oauthClient := oauth2.NewClient(oauth2.NoContext, tokenSource)
+	oauthClient := oauth2.NewClient(context.Background(), tokenSource)
 	p.client = api.NewClient(oauthClient)
 
 	// DO's API is rate limited at 5000/hour.
@@ -58,14 +59,14 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 
 	// Retrieve email address associated with this PAT.
 	p.limiter.Wait(1)
-	acct, _, err := p.client.Account.Get()
+	acct, _, err := p.client.Account.Get(context.Background())
 	if err != nil {
 		return err
 	}
 
 	// Now confirm that domain is accessible under this PAT.
 	p.limiter.Wait(1)
-	domains, _, err := p.client.Domains.Get(p.rootDomainName)
+	domains, _, err := p.client.Domains.Get(context.Background(), p.rootDomainName)
 	if err != nil {
 		return err
 	}
@@ -82,7 +83,7 @@ func (p *DigitalOceanProvider) GetName() string {
 
 func (p *DigitalOceanProvider) HealthCheck() error {
 	p.limiter.Wait(1)
-	_, _, err := p.client.Domains.Get(p.rootDomainName)
+	_, _, err := p.client.Domains.Get(context.Background(), p.rootDomainName)
 	return err
 }
 
@@ -96,7 +97,7 @@ func (p *DigitalOceanProvider) AddRecord(record utils.DnsRecord) error {
 
 		logrus.Debugf("Creating record: %v", createRequest)
 		p.limiter.Wait(1)
-		_, _, err := p.client.Domains.CreateRecord(p.rootDomainName, createRequest)
+		_, _, err := p.client.Domains.CreateRecord(context.Background(), p.rootDomainName, createRequest)
 		if err != nil {
 			return fmt.Errorf("API call has failed: %v", err)
 		}
@@ -126,7 +127,7 @@ func (p *DigitalOceanProvider) RemoveRecord(record utils.DnsRecord) error {
 		if fqdn == record.Fqdn && rec.Type == record.Type {
 			p.limiter.Wait(1)
 			logrus.Debugf("Deleting record: %v", rec)
-			_, err := p.client.Domains.DeleteRecord(p.rootDomainName, rec.ID)
+			_, err := p.client.Domains.DeleteRecord(context.Background(), p.rootDomainName, rec.ID)
 			if err != nil {
 				return fmt.Errorf("API call has failed: %v", err)
 			}
@@ -181,7 +182,7 @@ func (p *DigitalOceanProvider) fetchDoRecords() ([]api.DomainRecord, error) {
 	}
 	for {
 		p.limiter.Wait(1)
-		records, resp, err := p.client.Domains.Records(p.rootDomainName, opt)
+		records, resp, err := p.client.Domains.Records(context.Background(), p.rootDomainName, opt)
 		if err != nil {
 			return nil, fmt.Errorf("API call has failed: %v", err)
 		}

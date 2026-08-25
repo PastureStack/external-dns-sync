@@ -10,6 +10,9 @@ pipeline:
     commands:
     - apt-get update
     - apt-get install -y --no-install-recommends ca-certificates curl git make tar
-    - curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.4.2.tgz | tar xzf - -C /usr/bin --strip-components=1 docker/docker
+    - curl -fsSL -o /tmp/docker.tgz https://download.docker.com/linux/static/stable/x86_64/docker-29.7.2.tgz
+    - echo '803d433f226db4776e1768fd319fc6c6e4935a456acf84fcc0080818b854bc8f  /tmp/docker.tgz' | sha256sum -c -
+    - tar xzf /tmp/docker.tgz -C /usr/bin --strip-components=1 docker/docker
+    - rm -f /tmp/docker.tgz
     - docker --version
     - make ci

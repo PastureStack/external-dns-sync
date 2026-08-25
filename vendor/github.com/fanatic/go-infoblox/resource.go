@@ -1,8 +1,11 @@
 package infoblox
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"strconv"
@@ -15,6 +18,17 @@ type Resource struct {
 	wapiObject string
 }
 
+// NewResource creates new resource object from the passed parameters.
+// As Infoblox contains hundreds of different objects, this function
+// will allow the users to adopt new ones vary easy.
+func NewResource(c *Client, wapiObject string) *Resource {
+	return &Resource{
+		conn:       c,
+		wapiObject: wapiObject,
+	}
+}
+
+// Options represents the Options to be passed to the Infoblox WAPI
 type Options struct {
 	//The maximum number of objects to be returned.  If set to a negative
 	//number the appliance will return an error when the number of returned
@@ -26,7 +40,7 @@ type Options struct {
 	ReturnBasicFields bool     // Return basic fields in addition to ReturnFields
 }
 
-// Conditions are used for searching
+// A Condition is used for searching
 type Condition struct {
 	Field     *string // EITHER A documented field of the object (only set one)
 	Attribute *string // OR the name of an extensible attribute (only set one)
@@ -39,18 +53,49 @@ func (r Resource) All(opts *Options) ([]map[string]interface{}, error) {
 	return r.Find([]Condition{}, opts)
 }
 
+func (r Resource) Delete(ref string) (string, error) {
+	uri := r.resourceBase() + ref
+	resp, err := r.conn.SendRequest("DELETE", uri, "", nil)
+	if err != nil {
+		return "", err
+	}
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(resp.Body)
+	bodyOut := buf.String()
+	return bodyOut, nil
+}
+
 // Find resources with query parameters. Conditions are combined with AND
 // logic.  When a field is a list of extensible attribute that can have multiple
 // values, the condition is true if any value in the list matches.
 func (r Resource) Find(query []Condition, opts *Options) ([]map[string]interface{}, error) {
 	resp, err := r.find(query, opts)
+	if err != nil {
+		return nil, err
+	}
 
 	var out []map[string]interface{}
 	err = resp.Parse(&out)
 	if err != nil {
-		return nil, fmt.Errorf("%+v\n", err)
+		return nil, fmt.Errorf("%+v", err)
 	}
 	return out, nil
+}
+
+// Query retrieves objects from an Infoblox instance that meet specific
+// conditions and options. The return object is defined by the user and
+// passed to the function by the "out" parameter.
+func (r Resource) Query(query []Condition, opts *Options, out interface{}) error {
+	resp, err := r.find(query, opts)
+	if err != nil {
+		return err
+	}
+
+	err = resp.Parse(&out)
+	if err != nil {
+		return fmt.Errorf("%+v", err)
+	}
+	return nil
 }
 
 func (r Resource) find(query []Condition, opts *Options) (*APIResponse, error) {
@@ -58,12 +103,67 @@ func (r Resource) find(query []Condition, opts *Options) (*APIResponse, error) {
 
 	resp, err := r.conn.SendRequest("GET", r.resourceURI()+"?"+q.Encode(), "", nil)
 	if err != nil {
-		return nil, fmt.Errorf("Error sending request: %v\n", err)
+		return nil, fmt.Errorf("Error sending request: %v", err)
 	}
 
 	return resp, nil
 }
 
+type APIErrorResponse struct {
+	Text string `json:"text"`
+}
+
+func (r Resource) JsonAction(url string, actionType string, data string) (*APIResponse, error) {
+	var err error
+	head := make(map[string]string)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error creating request: %v\n", err)
+	}
+
+	head["Content-Type"] = "application/json"
+
+	resp, err := r.conn.SendRequest(actionType, url, data, head)
+	return resp, err
+}
+
+func (r Resource) CreateJson(url string, opts *Options, data []byte) (string, error) {
+	var urlStr, bodyJSON string
+
+	urlStr = r.resourceURI()
+	bodyJSON = string(data[:])
+
+	resp, _ := r.JsonAction(urlStr, "POST", bodyJSON)
+	if resp.StatusCode == 400 {
+		var t APIErrorResponse
+		body, _ := ioutil.ReadAll(resp.Body)
+		json.Unmarshal(body, &t)
+		return t.Text, errors.New(t.Text)
+	} else {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return string(body[:]), nil
+	}
+}
+
+func (r Resource) UpdateJson(url string, opts *Options, data []byte) (string, error) {
+	var urlStr, bodyJSON string
+
+	urlStr = r.resourceBase() + url
+	bodyJSON = string(data[:])
+
+	resp, _ := r.JsonAction(urlStr, "PUT", bodyJSON)
+	if resp.StatusCode == 400 {
+		var t APIErrorResponse
+		body, _ := ioutil.ReadAll(resp.Body)
+		json.Unmarshal(body, &t)
+		return t.Text, errors.New(t.Text)
+	} else {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return string(body[:]), nil
+	}
+}
+
+// Create creates a resource. Returns the ref of the created resource.
 func (r Resource) Create(data url.Values, opts *Options, body interface{}) (string, error) {
 	q := r.getQuery(opts, []Condition{}, data)
 	q.Set("_return_fields", "") //Force object response
@@ -80,7 +180,7 @@ func (r Resource) Create(data url.Values, opts *Options, body interface{}) (stri
 		// Put url-encoded data in the URL and send the body parameter as a JSON body.
 		bodyJSON, err := json.Marshal(body)
 		if err != nil {
-			return "", fmt.Errorf("Error creating request: %v\n", err)
+			return "", fmt.Errorf("Error creating request: %v", err)
 		}
 		log.Printf("POST body: %s\n", bodyJSON)
 		urlStr = r.resourceURI() + "?" + q.Encode()
@@ -90,7 +190,7 @@ func (r Resource) Create(data url.Values, opts *Options, body interface{}) (stri
 
 	resp, err := r.conn.SendRequest("POST", urlStr, bodyStr, head)
 	if err != nil {
-		return "", fmt.Errorf("Error sending request: %v\n", err)
+		return "", fmt.Errorf("Error sending request: %v", err)
 	}
 
 	//fmt.Printf("%v", resp.ReadBody())
@@ -99,7 +199,7 @@ func (r Resource) Create(data url.Values, opts *Options, body interface{}) (stri
 	var responseData interface{}
 	var ret string
 	if err := resp.Parse(&responseData); err != nil {
-		return "", fmt.Errorf("%+v\n", err)
+		return "", fmt.Errorf("%+v", err)
 	}
 	switch s := responseData.(type) {
 	case string:
@@ -143,6 +243,9 @@ func (r Resource) getQuery(opts *Options, query []Condition, extra url.Values) u
 	return v
 }
 
+func (r Resource) resourceBase() string {
+	return BasePath
+}
 func (r Resource) resourceURI() string {
-	return BASE_PATH + r.wapiObject
+	return BasePath + r.wapiObject
 }

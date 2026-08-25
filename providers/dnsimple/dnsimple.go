@@ -3,6 +3,7 @@ package dnsimple
 // Modified by PastureStack contributors for independent maintenance and rebranding.
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/dnsimple/dnsimple-go/dnsimple"
 	"github.com/juju/ratelimit"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
 )
 
 type DNSimpleProvider struct {
@@ -38,10 +40,13 @@ func (d *DNSimpleProvider) Init(rootDomainName string) error {
 	}
 
 	d.root = utils.UnFqdn(rootDomainName)
-	d.client = dnsimple.NewClient(dnsimple.NewOauthTokenCredentials(oauthToken))
+	d.client = dnsimple.NewClient(oauth2.NewClient(
+		context.Background(),
+		oauth2.StaticTokenSource(&oauth2.Token{AccessToken: oauthToken}),
+	))
 	d.limiter = ratelimit.NewBucketWithRate(1.5, 5)
 
-	whoamiResponse, err := d.client.Identity.Whoami()
+	whoamiResponse, err := d.client.Identity.Whoami(context.Background())
 	if err != nil {
 		return fmt.Errorf("DNSimple Authentication failed: %v", err)
 	}
@@ -50,7 +55,7 @@ func (d *DNSimpleProvider) Init(rootDomainName string) error {
 	}
 	d.accountID = strconv.FormatInt(whoamiResponse.Data.Account.ID, 10)
 
-	_, err = d.client.Zones.GetZone(d.accountID, d.root)
+	_, err = d.client.Zones.GetZone(context.Background(), d.accountID, d.root)
 	if err != nil {
 		return fmt.Errorf("Failed to get zone for '%s': %v", d.root, err)
 	}
@@ -65,7 +70,7 @@ func (*DNSimpleProvider) GetName() string {
 
 func (d *DNSimpleProvider) HealthCheck() error {
 	d.limiter.Wait(1)
-	_, err := d.client.Identity.Whoami()
+	_, err := d.client.Identity.Whoami(context.Background())
 	return err
 }
 
@@ -77,14 +82,14 @@ func (d *DNSimpleProvider) parseName(record utils.DnsRecord) string {
 func (d *DNSimpleProvider) AddRecord(record utils.DnsRecord) error {
 	name := d.parseName(record)
 	for _, rec := range record.Records {
-		recordInput := dnsimple.ZoneRecord{
-			Name:    name,
+		recordInput := dnsimple.ZoneRecordAttributes{
+			Name:    &name,
 			TTL:     record.TTL,
 			Type:    record.Type,
 			Content: rec,
 		}
 		d.limiter.Wait(1)
-		_, err := d.client.Zones.CreateRecord(d.accountID, d.root, recordInput)
+		_, err := d.client.Zones.CreateRecord(context.Background(), d.accountID, d.root, recordInput)
 		if err != nil {
 			return fmt.Errorf("DNSimple API call has failed: %v", err)
 		}
@@ -97,7 +102,7 @@ func (d *DNSimpleProvider) findRecords(record utils.DnsRecord) ([]dnsimple.ZoneR
 	var zoneRecords []dnsimple.ZoneRecord
 
 	d.limiter.Wait(1)
-	recordsResponse, err := d.client.Zones.ListRecords(d.accountID, d.root, nil)
+	recordsResponse, err := d.client.Zones.ListRecords(context.Background(), d.accountID, d.root, nil)
 	if err != nil {
 		return zoneRecords, fmt.Errorf("DNSimple API call has failed: %v", err)
 	}
@@ -129,7 +134,7 @@ func (d *DNSimpleProvider) RemoveRecord(record utils.DnsRecord) error {
 
 	for _, zoneRecord := range zoneRecords {
 		d.limiter.Wait(1)
-		_, err := d.client.Zones.DeleteRecord(d.accountID, d.root, zoneRecord.ID)
+		_, err := d.client.Zones.DeleteRecord(context.Background(), d.accountID, d.root, zoneRecord.ID)
 		if err != nil {
 			return fmt.Errorf("DNSimple API call has failed: %v", err)
 		}
@@ -142,7 +147,7 @@ func (d *DNSimpleProvider) GetRecords() ([]utils.DnsRecord, error) {
 	var records []utils.DnsRecord
 
 	d.limiter.Wait(1)
-	recordsResponse, err := d.client.Zones.ListRecords(d.accountID, d.root, nil)
+	recordsResponse, err := d.client.Zones.ListRecords(context.Background(), d.accountID, d.root, nil)
 	if err != nil {
 		return records, fmt.Errorf("DNSimple API call has failed: %v", err)
 	}
