@@ -51,7 +51,8 @@ require_marker scripts/build 'go build -mod=vendor -trimpath -ldflags "-buildid=
 require_marker scripts/version 'plain numeric semantic version' EXTERNAL_DNS_NUMERIC_VERSION_GATE_MISSING
 require_marker scripts/package 'test "${legal_count}" -eq 59' EXTERNAL_DNS_LEGAL_COUNT_GATE_MISSING
 require_marker scripts/package 'mkdir -p ../dist' EXTERNAL_DNS_DIST_DIRECTORY_GATE_MISSING
-require_marker go.mod 'go 1.27.0' EXTERNAL_DNS_GO_MODULE_VERSION_MISSING
+require_marker go.mod 'go 1.26.0' EXTERNAL_DNS_GO_MODULE_COMPATIBILITY_VERSION_MISSING
+require_marker go.mod 'toolchain go1.27.0' EXTERNAL_DNS_GO_TOOLCHAIN_VERSION_MISSING
 require_marker go.mod 'github.com/aws/aws-sdk-go-v2/service/route53 v1.65.9' EXTERNAL_DNS_AWS_SDK_V2_ROUTE53_MISSING
 require_marker go.mod 'github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0' EXTERNAL_DNS_ALIDNS_V5_MISSING
 require_marker vendor/modules.txt '# github.com/aws/aws-sdk-go-v2/service/route53 v1.65.9' EXTERNAL_DNS_AWS_SDK_V2_VENDOR_MISSING
@@ -171,5 +172,5 @@ if [ "$failure_count" -ne 0 ]; then
   exit 1
 fi
 
-printf 'EXTERNAL_DNS_SOURCE_GATES_OK go=1.27.0 build=ubuntu-26.04 runtime=alpine-3.23 non_root=1 legal_files=%s endpoint_override=bounded\n' \
+printf 'EXTERNAL_DNS_SOURCE_GATES_OK go_min=1.26.0 toolchain=1.27.0 build=ubuntu-26.04 runtime=alpine-3.23 non_root=1 legal_files=%s endpoint_override=bounded\n' \
   "$legal_count"

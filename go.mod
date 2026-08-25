@@ -1,6 +1,8 @@
 module github.com/PastureStack/external-dns-sync
 
-go 1.27.0
+go 1.26.0
+
+toolchain go1.27.0
 
 require (
 	github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0
