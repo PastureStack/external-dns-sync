@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/PastureStack/external-dns-sync/config"
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/providers"
 	"github.com/PastureStack/external-dns-sync/utils"
 	api "github.com/digitalocean/godo"
@@ -59,7 +60,7 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 
 	// Retrieve email address associated with this PAT.
 	p.limiter.Wait(1)
-	acct, _, err := p.client.Account.Get(context.Background())
+	_, _, err := p.client.Account.Get(context.Background())
 	if err != nil {
 		return err
 	}
@@ -73,7 +74,7 @@ func (p *DigitalOceanProvider) Init(rootDomainName string) error {
 
 	// DO's TTLs are domain-wide.
 	config.TTL = domains.TTL
-	logrus.Infof("Configured %s with email %s and domain %s", p.GetName(), acct.Email, domains.Name)
+	logrus.Infof("Configured %s for domain %s", logsafe.Value(p.GetName()), logsafe.Value(domains.Name))
 	return nil
 }
 
@@ -95,7 +96,10 @@ func (p *DigitalOceanProvider) AddRecord(record utils.DnsRecord) error {
 			Data: r,
 		}
 
-		logrus.Debugf("Creating record: %v", createRequest)
+		logrus.WithFields(logrus.Fields{
+			"name": logsafe.Value(createRequest.Name),
+			"type": logsafe.Value(createRequest.Type),
+		}).Debug("Creating DigitalOcean record")
 		p.limiter.Wait(1)
 		_, _, err := p.client.Domains.CreateRecord(context.Background(), p.rootDomainName, createRequest)
 		if err != nil {
@@ -126,7 +130,10 @@ func (p *DigitalOceanProvider) RemoveRecord(record utils.DnsRecord) error {
 		fqdn := p.nameToFqdn(rec.Name)
 		if fqdn == record.Fqdn && rec.Type == record.Type {
 			p.limiter.Wait(1)
-			logrus.Debugf("Deleting record: %v", rec)
+			logrus.WithFields(logrus.Fields{
+				"name": logsafe.Value(rec.Name),
+				"type": logsafe.Value(rec.Type),
+			}).Debug("Deleting DigitalOcean record")
 			_, err := p.client.Domains.DeleteRecord(context.Background(), p.rootDomainName, rec.ID)
 			if err != nil {
 				return fmt.Errorf("API call has failed: %v", err)

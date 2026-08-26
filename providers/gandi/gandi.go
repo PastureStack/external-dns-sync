@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/providers"
 	"github.com/PastureStack/external-dns-sync/utils"
 	gandiClient "github.com/prasmussen/gandi-api/client"
@@ -89,7 +90,7 @@ func (g *GandiProvider) Init(rootDomainName string) error {
 	g.sub = strings.TrimSuffix(root, zoneDomain)
 	g.zoneHandler = zone
 
-	logrus.Infof("Configured %s for domain '%s' using zone '%s'", g.GetName(), root, g.zone.Name)
+	logrus.Infof("Configured %s for domain '%s' using zone '%s'", logsafe.Value(g.GetName()), logsafe.Value(root), logsafe.Value(g.zone.Name))
 	return nil
 }
 
@@ -232,7 +233,7 @@ func (g *GandiProvider) versionAddRecord(version int64, record utils.DnsRecord) 
 	for _, rec := range record.Records {
 		suffix := fmt.Sprintf(".%s.", g.zoneDomain)
 		sub := strings.TrimSuffix(name, suffix)
-		logrus.Infof("Adding record %s", sub)
+		logrus.Infof("Adding record %s", logsafe.Value(sub))
 		args := gandiRecord.RecordAdd{
 			Zone:    g.zone.Id,
 			Version: version,
@@ -258,7 +259,7 @@ func (g *GandiProvider) versionRemoveRecord(version int64, record utils.DnsRecor
 	}
 
 	for _, rec := range records {
-		logrus.Infof("Removing record %s with ID %v", rec.Name, rec.Id)
+		logrus.Infof("Removing record %s with ID %v", logsafe.Value(rec.Name), rec.Id)
 		_, err := g.record.Delete(g.zone.Id, version, rec.Id)
 		if err != nil {
 			return fmt.Errorf("Failed to remove record: %v", err)

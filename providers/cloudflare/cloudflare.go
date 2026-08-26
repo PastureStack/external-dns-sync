@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/providers"
 	"github.com/PastureStack/external-dns-sync/utils"
 	api "github.com/crackcomm/cloudflare"
@@ -46,7 +47,7 @@ func (c *CloudflareProvider) Init(rootDomainName string) error {
 		return fmt.Errorf("Failed to set zone for root domain %s: %v", c.root, err)
 	}
 
-	logrus.Infof("Configured %s with zone '%s'", c.GetName(), c.root)
+	logrus.Infof("Configured %s with zone '%s'", logsafe.Value(c.GetName()), logsafe.Value(c.root))
 	return nil
 }
 

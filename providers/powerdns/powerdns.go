@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/providers"
 	"github.com/PastureStack/external-dns-sync/utils"
 	"github.com/sirupsen/logrus"
@@ -43,7 +44,7 @@ func (d *PdnsProvider) Init(rootDomainName string) error {
 		return fmt.Errorf("Failed to list records for '%s': %v", d.root, err)
 	}
 
-	logrus.Infof("Configured %s with zone '%s'", d.GetName(), d.root)
+	logrus.Infof("Configured %s with zone '%s'", logsafe.Value(d.GetName()), logsafe.Value(d.root))
 	return nil
 }
 
@@ -62,11 +63,14 @@ func (d *PdnsProvider) parseName(record utils.DnsRecord) string {
 }
 
 func (d *PdnsProvider) AddRecord(record utils.DnsRecord) error {
-	logrus.Debugf("Called AddRecord with: %v\n", record)
+	logrus.WithFields(logrus.Fields{
+		"fqdn": logsafe.Value(record.Fqdn),
+		"type": logsafe.Value(record.Type),
+	}).Debug("Adding PowerDNS record")
 	name := d.parseName(record)
 	err := d.client.AddRecord(name, record.Type, record.TTL, record.Records)
 	if err != nil {
-		logrus.Errorf("Failed to add Record for %s : %v", name, err)
+		logrus.Errorf("Failed to add record for %s: %s", logsafe.Value(name), logsafe.Value(err))
 		return err
 	}
 	return nil
@@ -81,7 +85,7 @@ func (d *PdnsProvider) findRecords(record utils.DnsRecord) ([]powerdns.Record, e
 
 	name := d.parseName(record)
 	// utils.DnsRecord.Fqdn has a trailing. | powerdns.Record.Name doesn't
-	logrus.Debugf("Parsed Name is %s\n", name)
+	logrus.Debugf("Parsed name is %s", logsafe.Value(name))
 	for _, rec := range resp {
 		if rec.Name == name && rec.Type == record.Type {
 			records = append(records, rec)
@@ -92,7 +96,10 @@ func (d *PdnsProvider) findRecords(record utils.DnsRecord) ([]powerdns.Record, e
 }
 
 func (d *PdnsProvider) UpdateRecord(record utils.DnsRecord) error {
-	logrus.Debugf("Called UpdateRecord with: %v\n", record)
+	logrus.WithFields(logrus.Fields{
+		"fqdn": logsafe.Value(record.Fqdn),
+		"type": logsafe.Value(record.Type),
+	}).Debug("Updating PowerDNS record")
 
 	err := d.RemoveRecord(record)
 	if err != nil {
@@ -104,7 +111,10 @@ func (d *PdnsProvider) UpdateRecord(record utils.DnsRecord) error {
 
 // RemoveRecord ... Might be able to do this with out the for loop
 func (d *PdnsProvider) RemoveRecord(record utils.DnsRecord) error {
-	logrus.Debugf("Called RemoveRecord with: %v\n", record)
+	logrus.WithFields(logrus.Fields{
+		"fqdn": logsafe.Value(record.Fqdn),
+		"type": logsafe.Value(record.Type),
+	}).Debug("Removing PowerDNS record")
 
 	records, err := d.findRecords(record)
 	if err != nil {
@@ -132,7 +142,10 @@ func (d *PdnsProvider) GetRecords() ([]utils.DnsRecord, error) {
 	}
 
 	for _, rec := range pdnsRecords {
-		logrus.Debugf("%v\n", rec)
+		logrus.WithFields(logrus.Fields{
+			"name": logsafe.Value(rec.Name),
+			"type": logsafe.Value(rec.Type),
+		}).Debug("Inspecting PowerDNS record")
 		if rec.Disabled == true {
 			continue
 		}

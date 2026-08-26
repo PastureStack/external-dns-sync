@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/providers"
 	"github.com/PastureStack/external-dns-sync/utils"
 	"github.com/miekg/dns"
@@ -73,7 +74,7 @@ func (r *RFC2136Provider) Init(rootDomainName string) error {
 	r.insecure = insecure
 
 	logrus.Infof("Configured %s with zone '%s' and nameserver '%s'",
-		r.GetName(), r.zoneName, r.nameserver)
+		logsafe.Value(r.GetName()), logsafe.Value(r.zoneName), logsafe.Value(r.nameserver))
 
 	return nil
 }
@@ -94,12 +95,12 @@ func (r *RFC2136Provider) HealthCheck() error {
 }
 
 func (r *RFC2136Provider) AddRecord(record utils.DnsRecord) error {
-	logrus.Debugf("Adding RRset '%s %s'", record.Fqdn, record.Type)
+	logrus.Debugf("Adding RRset '%s %s'", logsafe.Value(record.Fqdn), logsafe.Value(record.Type))
 	m := new(dns.Msg)
 	m.SetUpdate(r.zoneName)
 	rrs := make([]dns.RR, 0)
 	for _, rec := range record.Records {
-		logrus.Debugf("Adding RR: '%s %d %s %s'", record.Fqdn, record.TTL, record.Type, rec)
+		logrus.Debugf("Adding RR: '%s %d %s %s'", logsafe.Value(record.Fqdn), record.TTL, logsafe.Value(record.Type), logsafe.Value(rec))
 		rr, err := dns.NewRR(fmt.Sprintf("%s %d %s %s", record.Fqdn, record.TTL, record.Type, rec))
 		if err != nil {
 			return fmt.Errorf("Failed to build RR: %v", err)
@@ -117,7 +118,7 @@ func (r *RFC2136Provider) AddRecord(record utils.DnsRecord) error {
 }
 
 func (r *RFC2136Provider) RemoveRecord(record utils.DnsRecord) error {
-	logrus.Debugf("Removing RRset '%s %s'", record.Fqdn, record.Type)
+	logrus.Debugf("Removing RRset '%s %s'", logsafe.Value(record.Fqdn), logsafe.Value(record.Type))
 	m := new(dns.Msg)
 	m.SetUpdate(r.zoneName)
 	rr, err := dns.NewRR(fmt.Sprintf("%s 0 %s 0.0.0.0", record.Fqdn, record.Type))
@@ -226,7 +227,7 @@ func (r *RFC2136Provider) sendMessage(msg *dns.Msg) error {
 }
 
 func (r *RFC2136Provider) list() ([]dns.RR, error) {
-	logrus.Debugf("Fetching records for '%s'", r.zoneName)
+	logrus.Debugf("Fetching records for '%s'", logsafe.Value(r.zoneName))
 	t := new(dns.Transfer)
 	if !r.insecure {
 		t.TsigSecret = map[string]string{r.tsigKeyName: r.tsigSecret}
@@ -249,7 +250,7 @@ func (r *RFC2136Provider) list() ([]dns.RR, error) {
 			if e.Error == dns.ErrSoa {
 				logrus.Error("AXFR error: unexpected response received from the server")
 			} else {
-				logrus.Errorf("AXFR error: %v", e.Error)
+				logrus.Errorf("AXFR error: %s", logsafe.Value(e.Error))
 			}
 			continue
 		}
