@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/providers"
 	"github.com/PastureStack/external-dns-sync/utils"
 	"github.com/dnsimple/dnsimple-go/dnsimple"
@@ -60,7 +61,7 @@ func (d *DNSimpleProvider) Init(rootDomainName string) error {
 		return fmt.Errorf("Failed to get zone for '%s': %v", d.root, err)
 	}
 
-	logrus.Infof("Configured %s with zone '%s'", d.GetName(), d.root)
+	logrus.Infof("Configured %s with zone '%s'", logsafe.Value(d.GetName()), logsafe.Value(d.root))
 	return nil
 }
 

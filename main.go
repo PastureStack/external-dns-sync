@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PastureStack/external-dns-sync/config"
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/metadata"
 	"github.com/PastureStack/external-dns-sync/providers"
 	_ "github.com/PastureStack/external-dns-sync/providers/route53"
@@ -54,7 +55,7 @@ func setEnv() {
 	}
 	if *logFile != "" {
 		if output, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-			logrus.Fatalf("Failed to log to file %s: %v", *logFile, err)
+			logrus.Fatalf("Failed to log to file %s: %s", logsafe.Value(*logFile), logsafe.Value(err))
 		} else {
 			logrus.SetOutput(output)
 			formatter := &logrus.TextFormatter{
@@ -71,29 +72,29 @@ func setEnv() {
 	// configure metadata client
 	m, err = metadata.NewMetadataClient()
 	if err != nil {
-		logrus.Fatalf("Failed to configure metadata client: %v", err)
+		logrus.Fatalf("Failed to configure metadata client: %s", logsafe.Value(err))
 	}
 
 	// Configure the legacy-compatible platform API client.
 	platformAPI, err = NewPlatformClient(config.PlatformURL, config.PlatformAccessKey, config.PlatformSecretKey)
 	if err != nil {
-		logrus.Fatalf("Failed to configure platform API client: %v", err)
+		logrus.Fatalf("Failed to configure platform API client: %s", logsafe.Value(err))
 	}
 
 	// get provider
 	provider, err = providers.GetProvider(*providerName, config.RootDomainName)
 	if err != nil {
-		logrus.Fatalf("Failed to get provider '%s': %v", *providerName, err)
+		logrus.Fatalf("Failed to get provider '%s': %s", logsafe.Value(*providerName), logsafe.Value(err))
 	}
 }
 
 func main() {
-	logrus.Infof("Starting PastureStack External DNS Sync %s", Version)
+	logrus.Infof("Starting PastureStack External DNS Sync %s", logsafe.Value(Version))
 	setEnv()
 
 	go startHealthCheck()
 	if err := EnsureUpgradeToStateRRSet(); err != nil {
-		logrus.Fatalf("Failed to ensure upgrade: %v", err)
+		logrus.Fatalf("Failed to ensure upgrade: %s", logsafe.Value(err))
 	}
 
 	currentVersion := "init"
@@ -104,10 +105,10 @@ func main() {
 		update, updateForced := false, false
 		newVersion, err := m.GetVersion()
 		if err != nil {
-			logrus.Errorf("Failed to get metadata version: %v", err)
+			logrus.Errorf("Failed to get metadata version: %s", logsafe.Value(err))
 			goto sleep
 		} else if currentVersion != newVersion {
-			logrus.Debugf("Metadata version changed. Old: %s New: %s.", currentVersion, newVersion)
+			logrus.Debugf("Metadata version changed. Old: %s New: %s.", logsafe.Value(currentVersion), logsafe.Value(newVersion))
 			currentVersion = newVersion
 			update = true
 		} else {
@@ -122,11 +123,11 @@ func main() {
 			// get records from metadata
 			metadataRecs, err := m.GetMetadataDnsRecords()
 			if err != nil {
-				logrus.Errorf("Failed to get DNS records from metadata: %v", err)
+				logrus.Errorf("Failed to get DNS records from metadata: %s", logsafe.Value(err))
 				goto sleep
 			}
 
-			logrus.Debugf("DNS records from metadata: %v", metadataRecs)
+			logrus.WithField("recordCount", len(metadataRecs)).Debug("DNS records received from metadata")
 
 			// A flapping service might cause the metadata version to change
 			// in short intervals. Caching the previous metadata DNS records
@@ -136,16 +137,16 @@ func main() {
 				// update the provider
 				updatedRecords, err := UpdateProviderDnsRecords(metadataRecs)
 				if err != nil {
-					logrus.Errorf("Failed to update provider with new DNS records: %v", err)
+					logrus.Errorf("Failed to update provider with new DNS records: %s", logsafe.Value(err))
 					goto sleep
 				}
 
 				// Update the service FQDN through the platform compatibility API.
 				for _, mRec := range updatedRecords {
 					if mRec.ServiceName != "" && mRec.StackName != "" {
-						logrus.Debugf("Updating platform service FQDN for %s/%s", mRec.ServiceName, mRec.StackName)
+						logrus.Debugf("Updating platform service FQDN for %s/%s", logsafe.Value(mRec.ServiceName), logsafe.Value(mRec.StackName))
 						if err := platformAPI.UpdateServiceDomainName(mRec); err != nil {
-							logrus.Errorf("Failed to update platform service FQDN: %v", err)
+							logrus.Errorf("Failed to update platform service FQDN: %s", logsafe.Value(err))
 						}
 					}
 				}

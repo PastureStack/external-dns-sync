@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/providers"
 	"github.com/PastureStack/external-dns-sync/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -106,7 +107,7 @@ func (r *Route53Provider) Init(rootDomainName string) error {
 		return fmt.Errorf("failed to configure hosted zone: %w", err)
 	}
 
-	logrus.Infof("Configured %s with hosted zone %s", r.GetName(), rootDomainName)
+	logrus.Infof("Configured %s with hosted zone %s", logsafe.Value(r.GetName()), logsafe.Value(rootDomainName))
 	return nil
 }
 
@@ -241,7 +242,10 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 			continue
 		}
 		if IsProprietary(rrSet) {
-			logrus.Debugf("skipped proprietary rrSet: %v", rrSet)
+			logrus.WithFields(logrus.Fields{
+				"name": logsafe.Value(aws.ToString(rrSet.Name)),
+				"type": logsafe.Value(rrSet.Type),
+			}).Debug("Skipped proprietary Route 53 record")
 			continue
 		}
 
@@ -257,7 +261,7 @@ func (r *Route53Provider) GetRecords() ([]utils.DnsRecord, error) {
 			records = append(records, value)
 		}
 		if rrSet.TTL == nil {
-			logrus.Warnf("Skipping Route 53 record %s without a TTL", aws.ToString(rrSet.Name))
+			logrus.Warnf("Skipping Route 53 record %s without a TTL", logsafe.Value(aws.ToString(rrSet.Name)))
 			continue
 		}
 		dnsRecords = append(dnsRecords, utils.DnsRecord{

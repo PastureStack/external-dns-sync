@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/providers"
 	"github.com/PastureStack/external-dns-sync/utils"
 	api "github.com/fanatic/go-infoblox"
@@ -308,7 +309,7 @@ func (d *InfobloxProvider) prepareRecord(rec string, tp string, fqdn string, ttl
 		body["ipv4addr"] = rec
 		url = recordAURL
 	} else {
-		logrus.Warnf("Warning unsupport record type: %s", tp)
+		logrus.Warnf("Warning unsupported record type: %s", logsafe.Value(tp))
 		return "", "", nil
 	}
 	body["name"] = utils.UnFqdn(fqdn)
@@ -347,7 +348,11 @@ func (d *InfobloxProvider) SendRequest(method, urlStr, body string, head map[str
 		} else {
 			url = urlStr + "?" + firstPage
 		}
-		logrus.Debugf("SendRequest to infoblox with pagination: [method]%s, [url] %s", method, url)
+		logrus.WithFields(logrus.Fields{
+			"method":      logsafe.Value(method),
+			"bodyBytes":   len(body),
+			"headerCount": len(head),
+		}).Debug("Sending paginated Infoblox request")
 
 		res, err := d.client.SendRequest(method, url, body, head)
 		if err != nil {
@@ -363,7 +368,7 @@ func (d *InfobloxProvider) SendRequest(method, urlStr, body string, head map[str
 		for result.Page_id != "" {
 			// Adding _page_id to nextPage url
 			nextPage := url + "&_page_id=" + result.Page_id
-			logrus.Debugf("SendRequest infoblox getting next _page_id %s", result.Page_id)
+			logrus.Debug("Fetching next Infoblox response page")
 			// emptying result.Page_id
 			result.Page_id = ""
 
@@ -383,7 +388,11 @@ func (d *InfobloxProvider) SendRequest(method, urlStr, body string, head map[str
 		return records, nil
 	}
 
-	logrus.Debugf("SendRequest to infoblox: [method]%s, [url] %s, [body] %s, [head] %v", method, urlStr, body, head)
+	logrus.WithFields(logrus.Fields{
+		"method":      logsafe.Value(method),
+		"bodyBytes":   len(body),
+		"headerCount": len(head),
+	}).Debug("Sending Infoblox request")
 	_, err := d.client.SendRequest(method, urlStr, body, head)
 
 	return nil, err

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/PastureStack/external-dns-sync/config"
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -18,7 +19,7 @@ func UpdateProviderDnsRecords(metadataRecs map[string]utils.MetadataDnsRecord) (
 	if err != nil {
 		return nil, fmt.Errorf("Provider error reading dns entries: %v", err)
 	}
-	logrus.Debugf("DNS records from provider: %v", ourRecords)
+	logrus.WithField("recordCount", len(ourRecords)).Debug("DNS records received from provider")
 
 	if _, err := removeExtraRecords(metadataRecs, ourRecords); err != nil {
 		return nil, err
@@ -49,7 +50,7 @@ func addMissingRecords(metadataRecs map[string]utils.MetadataDnsRecord, provider
 	if len(toAdd) == 0 {
 		logrus.Debug("No DNS records to add")
 	} else {
-		logrus.Debugf("DNS records to add: %v", toAdd)
+		logrus.WithField("recordCount", len(toAdd)).Debug("DNS records to add")
 	}
 
 	return updateRecords(toAdd, &Add)
@@ -61,13 +62,13 @@ func updateRecords(toChange []utils.MetadataDnsRecord, op *Op) ([]utils.Metadata
 		var err error
 		switch *op {
 		case Add:
-			logrus.Infof("Adding dns record: %v", value)
+			logrus.Infof("Adding DNS record %s %s", logsafe.Value(value.DnsRecord.Fqdn), logsafe.Value(value.DnsRecord.Type))
 			err = provider.AddRecord(value.DnsRecord)
 		case Remove:
-			logrus.Infof("Removing dns record: %v", value)
+			logrus.Infof("Removing DNS record %s %s", logsafe.Value(value.DnsRecord.Fqdn), logsafe.Value(value.DnsRecord.Type))
 			err = provider.RemoveRecord(value.DnsRecord)
 		case Update:
-			logrus.Infof("Updating dns record: %v", value)
+			logrus.Infof("Updating DNS record %s %s", logsafe.Value(value.DnsRecord.Fqdn), logsafe.Value(value.DnsRecord.Type))
 			err = provider.UpdateRecord(value.DnsRecord)
 		default:
 			return changed, fmt.Errorf("unsupported DNS operation %q", op.Name)
@@ -119,7 +120,7 @@ func updateExistingRecords(metadataRecs map[string]utils.MetadataDnsRecord, prov
 	if len(toUpdate) == 0 {
 		logrus.Debug("No DNS records to update")
 	} else {
-		logrus.Debugf("DNS records to update: %v", toUpdate)
+		logrus.WithField("recordCount", len(toUpdate)).Debug("DNS records to update")
 	}
 
 	return updateRecords(toUpdate, &Update)
@@ -140,7 +141,7 @@ func removeExtraRecords(metadataRecs map[string]utils.MetadataDnsRecord, provide
 	if len(toRemove) == 0 {
 		logrus.Debug("No DNS records to remove")
 	} else {
-		logrus.Debugf("DNS records to remove: %v", toRemove)
+		logrus.WithField("recordCount", len(toRemove)).Debug("DNS records to remove")
 	}
 
 	return updateRecords(toRemove, &Remove)
@@ -196,7 +197,7 @@ func getProviderDnsRecords() (map[string]utils.DnsRecord, map[string]utils.DnsRe
 	// Get the FQDNs that were created by us from the state RRSet
 	for _, rec := range providerRecords {
 		if rec.Fqdn == stateFqdn && rec.Type == "TXT" {
-			logrus.Debugf("FQDNs from state RRSet: %v", rec.Records)
+			logrus.WithField("recordCount", len(rec.Records)).Debug("FQDNs received from state RRSet")
 			for _, value := range rec.Records {
 				ourFqdns[value] = struct{}{}
 			}
@@ -233,7 +234,7 @@ func EnsureUpgradeToStateRRSet() error {
 	}
 
 	stateFqdn := utils.StateFqdn(m.EnvironmentUUID, config.RootDomainName)
-	logrus.Debugf("Checking for state RRSet %s", stateFqdn)
+	logrus.Debugf("Checking for state RRSet %s", logsafe.Value(stateFqdn))
 	for _, rec := range allRecords {
 		if rec.Fqdn == stateFqdn && rec.Type == "TXT" {
 			logrus.Debugf("Found state RRSet with %d records", len(rec.Records))
@@ -253,7 +254,7 @@ func EnsureUpgradeToStateRRSet() error {
 	}
 
 	if len(ourFqdns) > 0 {
-		logrus.Infof("Creating RRSet '%s TXT' for %d pre-existing records", stateFqdn, len(ourFqdns))
+		logrus.Infof("Creating RRSet '%s TXT' for %d pre-existing records", logsafe.Value(stateFqdn), len(ourFqdns))
 		stateRec := utils.StateRecord(stateFqdn, config.TTL, ourFqdns)
 		if err := provider.AddRecord(stateRec); err != nil {
 			return fmt.Errorf("Failed to add RRSet to provider %v: %v", stateRec, err)

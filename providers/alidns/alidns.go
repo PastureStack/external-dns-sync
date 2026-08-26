@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/PastureStack/external-dns-sync/providers"
 	"github.com/PastureStack/external-dns-sync/utils"
 	alidns "github.com/alibabacloud-go/alidns-20150109/v5/client"
@@ -61,7 +62,7 @@ func (a *AlidnsProvider) Init(rootDomainName string) error {
 		return fmt.Errorf("failed to describe root domain %q: %w", a.rootDomainName, err)
 	}
 
-	logrus.Infof("Configured %s with zone '%s'", a.GetName(), a.rootDomainName)
+	logrus.Infof("Configured %s with zone '%s'", logsafe.Value(a.GetName()), logsafe.Value(a.rootDomainName))
 	return nil
 }
 

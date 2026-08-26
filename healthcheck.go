@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/PastureStack/external-dns-sync/config"
+	"github.com/PastureStack/external-dns-sync/internal/logsafe"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 )
@@ -23,8 +24,8 @@ func startHealthCheck() {
 		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       30 * time.Second,
 	}
-	logrus.Info("Health check handler is listening on ", config.HealthAddress)
-	logrus.Fatal(server.ListenAndServe())
+	logrus.Info("Health check handler is listening on ", logsafe.Value(config.HealthAddress))
+	logrus.Fatal(logsafe.Value(server.ListenAndServe()))
 }
 
 func healthCheck(w http.ResponseWriter, req *http.Request) {
@@ -38,7 +39,7 @@ func healthCheck(w http.ResponseWriter, req *http.Request) {
 
 	// 2) Test the selected DNS provider.
 	if err := provider.HealthCheck(); err != nil {
-		logrus.Errorf("Health check failed: provider error: %v", err)
+		logrus.Errorf("Health check failed: provider error: %s", logsafe.Value(err))
 		http.Error(w, "Failed to reach the external DNS provider", http.StatusInternalServerError)
 		return
 	}
