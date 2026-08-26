@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.65.10
 	github.com/cognetoapps/go-pointdns v0.0.0-20140423100433-31674057a160
 	github.com/crackcomm/cloudflare v0.0.0-20160503202424-dc3581931644
-	github.com/digitalocean/godo v1.204.0
+	github.com/digitalocean/godo v1.205.0
 	github.com/dnsimple/dnsimple-go v1.7.0
 	github.com/fanatic/go-infoblox v0.0.0-20190709161059-e25f3820238c
 	github.com/gorilla/mux v1.8.1

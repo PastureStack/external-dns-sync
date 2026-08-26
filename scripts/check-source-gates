@@ -57,6 +57,7 @@ require_marker go.mod 'github.com/aws/aws-sdk-go-v2/service/route53 v1.65.10' EX
 require_marker go.mod 'github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0' EXTERNAL_DNS_ALIDNS_V5_MISSING
 require_marker vendor/modules.txt '# github.com/aws/aws-sdk-go-v2/service/route53 v1.65.10' EXTERNAL_DNS_AWS_SDK_V2_VENDOR_MISSING
 require_marker vendor/modules.txt '# github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0' EXTERNAL_DNS_ALIDNS_V5_VENDOR_MISSING
+require_marker vendor/modules.txt '# github.com/digitalocean/godo v1.205.0' EXTERNAL_DNS_GODO_VENDOR_NOT_CURRENT
 reject_marker go.mod 'github.com/aws/aws-sdk-go v1.' EXTERNAL_DNS_AWS_SDK_V1_PRESENT
 reject_marker providers/route53/route53.go 'github.com/aws/aws-sdk-go/' EXTERNAL_DNS_AWS_SDK_V1_IMPORT_PRESENT
 reject_marker providers/alidns/alidns.go 'github.com/denverdino/aliyungo' EXTERNAL_DNS_ALIYUNGO_IMPORT_PRESENT

@@ -159,7 +159,7 @@ github.com/crackcomm/cloudflare
 # github.com/dghubble/sling v1.4.2
 ## explicit; go 1.19
 github.com/dghubble/sling
-# github.com/digitalocean/godo v1.204.0
+# github.com/digitalocean/godo v1.205.0
 ## explicit; go 1.23.0
 github.com/digitalocean/godo
 github.com/digitalocean/godo/metrics
