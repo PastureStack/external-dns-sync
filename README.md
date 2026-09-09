@@ -16,10 +16,14 @@ record. PastureStack contributors claim authorship only for their own changes.
 See [ORIGIN.md](ORIGIN.md) for provenance and [COMPATIBILITY.md](COMPATIBILITY.md)
 for the neutral runtime contract.
 
-## Published provider
+## Release status
 
-The reviewed `v0.8.1` runtime registers only Amazon Route 53 because that is
-the first-party infrastructure template being preserved in this release.
+The current public release and Catalog image are `v0.8.0`. This source tree
+targets the next numeric candidate, `v0.8.1`; that candidate is not yet
+published and must not be copied into deployment configuration.
+
+The reviewed runtime registers only Amazon Route 53 because that is the
+first-party infrastructure template being preserved in the current Catalog.
 Historical implementations for other providers remain in the upstream-derived
 source tree for provenance and license continuity, but they are not registered
 in or supported by the published image.
