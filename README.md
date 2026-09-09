@@ -106,7 +106,7 @@ After packaging a local image, the entrypoint and binary can be checked without
 contacting a provider:
 
 ```bash
-docker run --rm ghcr.io/pasturestack/external-dns-sync:v0.8.1 --help
+docker run --rm ghcr.io/pasturestack/external-dns-sync:v0.8.0 --help
 ```
 
 ## Runtime boundary

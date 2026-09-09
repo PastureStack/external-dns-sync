@@ -70,7 +70,7 @@ require_marker providers/infoblox/infoblox.go 'os.OpenInRoot(rootPath, relativeP
 require_marker providers/alidns/alidns.go 'return int64(ttl), nil' EXTERNAL_DNS_ALIDNS_TTL_VALIDATION_MISSING
 require_marker package/update-platform-ca 'CA_BUNDLE_PATH="${PLATFORM_CA_BUNDLE_PATH:-/tmp/pasturestack-ca-bundle.crt}"' EXTERNAL_DNS_NON_ROOT_CA_BUNDLE_MISSING
 require_marker package/entrypoint.sh 'export PLATFORM_URL="${PLATFORM_URL:-${CATTLE_URL:-}}"' EXTERNAL_DNS_AGENT_URL_MAPPING_MISSING
-require_marker README.md 'ghcr.io/pasturestack/external-dns-sync:v0.8.1' EXTERNAL_DNS_README_VERSION_TAG_MISSING
+require_marker README.md 'ghcr.io/pasturestack/external-dns-sync:v0.8.0' EXTERNAL_DNS_README_PUBLIC_VERSION_TAG_MISSING
 require_marker metadata/metadata.go '"io.rancher.service.external_dns"' EXTERNAL_DNS_LEGACY_SERVICE_POLICY_LABEL_MISSING
 require_marker metadata/metadata.go '"io.rancher.host.external_dns"' EXTERNAL_DNS_LEGACY_HOST_POLICY_LABEL_MISSING
 require_marker metadata/metadata.go '"io.rancher.host.external_dns_ip"' EXTERNAL_DNS_LEGACY_HOST_ADDRESS_LABEL_MISSING
