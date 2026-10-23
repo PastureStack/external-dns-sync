@@ -28,6 +28,8 @@ The published Linux image is
 See the [official publication](https://github.com/PastureStack/external-dns-sync/actions/runs/39960962858)
 for artifact evidence. Catalog selection and managed-service upgrade acceptance
 remain separate; publishing does not update existing deployments.
+The previous `ghcr.io/pasturestack/external-dns-sync:v0.8.0` image remains
+historical release evidence.
 
 The reviewed runtime registers only Amazon Route 53 because that is the
 first-party infrastructure template being preserved in the current Catalog.
@@ -109,11 +111,11 @@ run a provider update against a production zone as part of a source migration
 proof of concept. CI/CD publication and release automation are outside this
 scope.
 
-After packaging a local image, the entrypoint and binary can be checked without
-contacting a provider:
+The published image's entrypoint and binary can be checked without contacting
+a provider:
 
 ```bash
-docker run --rm ghcr.io/pasturestack/external-dns-sync:v0.8.0 --help
+docker run --rm ghcr.io/pasturestack/external-dns-sync:v0.8.1 --help
 ```
 
 ## Runtime boundary
