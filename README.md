@@ -20,9 +20,16 @@ for the neutral runtime contract.
 
 ## Release status
 
-The current public release and Catalog image are `v0.8.0`. This source tree
-targets the next numeric candidate, `v0.8.1`; that candidate is not yet
-published and must not be copied into deployment configuration.
+The current public release is [v0.8.1](https://github.com/PastureStack/external-dns-sync/releases/tag/v0.8.1),
+built from producer `7ff253bd84c13fd6748b9ca9737370de9ff5535f`.
+The published Linux image is
+`ghcr.io/pasturestack/external-dns-sync:v0.8.1`, with manifest digest
+`sha256:0dd0a346573f1661abf920a0d87a153a312515882b16a8ef5983614fa725c751`.
+See the [official publication](https://github.com/PastureStack/external-dns-sync/actions/runs/39960962858)
+for artifact evidence. Catalog selection and managed-service upgrade acceptance
+remain separate; publishing does not update existing deployments.
+The previous `ghcr.io/pasturestack/external-dns-sync:v0.8.0` image remains
+historical release evidence.
 
 The reviewed runtime registers only Amazon Route 53 because that is the
 first-party infrastructure template being preserved in the current Catalog.
@@ -104,11 +111,11 @@ run a provider update against a production zone as part of a source migration
 proof of concept. CI/CD publication and release automation are outside this
 scope.
 
-After packaging a local image, the entrypoint and binary can be checked without
-contacting a provider:
+The published image's entrypoint and binary can be checked without contacting
+a provider:
 
 ```bash
-docker run --rm ghcr.io/pasturestack/external-dns-sync:v0.8.0 --help
+docker run --rm ghcr.io/pasturestack/external-dns-sync:v0.8.1 --help
 ```
 
 ## Runtime boundary
