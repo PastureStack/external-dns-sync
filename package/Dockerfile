@@ -9,7 +9,12 @@ COPY ubuntu-apt.lock /licenses/ubuntu-build-apt.lock
 
 RUN apk add --no-cache \
         bash=5.3.3-r1 \
-        ca-certificates=20260611-r0 && \
+        ca-certificates=20261020-r0 \
+        libcrypto3=3.5.9-r0 \
+        libssl3=3.5.9-r0 \
+        musl=1.2.5-r24 \
+        musl-utils=1.2.5-r24 \
+        zlib=1.3.2-r1 && \
     apk info -v | LC_ALL=C sort > /licenses/EXTERNAL-DNS-SYNC-RUNTIME-ALPINE-PACKAGES.tsv && \
     addgroup -S -g 10001 pasturestack && \
     adduser -S -D -h /home/pasturestack -s /sbin/nologin -G pasturestack -u 10001 pasturestack

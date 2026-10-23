@@ -26,24 +26,27 @@ reject_marker() {
   fi
 }
 
-require_marker Dockerfile.dapper 'ARG GO_VERSION=1.27.0' EXTERNAL_DNS_GO_VERSION_NOT_CURRENT
+require_marker Dockerfile.dapper 'ARG GO_VERSION=1.27.3' EXTERNAL_DNS_GO_VERSION_NOT_CURRENT
 require_marker Dockerfile.dapper 'GO111MODULE=on' EXTERNAL_DNS_GO_MODULE_MODE_MISSING
 require_marker Dockerfile.dapper 'GOTOOLCHAIN=local' EXTERNAL_DNS_GO_TOOLCHAIN_NOT_LOCAL
 require_marker Dockerfile.dapper 'GOPROXY=off' EXTERNAL_DNS_GO_NETWORK_BUILD_NOT_DISABLED
 reject_marker Dockerfile.dapper 'GO111MODULE=off' EXTERNAL_DNS_LEGACY_GOPATH_MODE_PRESENT
-require_marker Dockerfile.dapper 'ARG GO_LINUX_AMD64_SHA256=675c26c449cbb18fc24b74650de1eabbae6e16f64326fd85a283fb3b58280685' EXTERNAL_DNS_GO_AMD64_SHA_MISSING
-require_marker Dockerfile.dapper 'ARG GO_LINUX_ARM64_SHA256=51798d2c42d0e1c6ed7fd9f48728b4193abac9e8aad6dbac2fe96a81f5909bda' EXTERNAL_DNS_GO_ARM64_SHA_MISSING
-require_marker Dockerfile.dapper 'ARG DOCKER_VERSION=29.7.2' EXTERNAL_DNS_DOCKER_VERSION_NOT_CURRENT
-require_marker Dockerfile.dapper 'ARG DOCKER_LINUX_AMD64_SHA256=803d433f226db4776e1768fd319fc6c6e4935a456acf84fcc0080818b854bc8f' EXTERNAL_DNS_DOCKER_AMD64_SHA_MISSING
-require_marker Dockerfile.dapper 'ARG DOCKER_LINUX_ARM64_SHA256=43d143448adf2c2787704e7d7704fd6d62d367a54c5edaef0a3f75509cb0938d' EXTERNAL_DNS_DOCKER_ARM64_SHA_MISSING
+require_marker Dockerfile.dapper 'ARG GO_LINUX_AMD64_SHA256=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40' EXTERNAL_DNS_GO_AMD64_SHA_MISSING
+require_marker Dockerfile.dapper 'ARG GO_LINUX_ARM64_SHA256=a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49' EXTERNAL_DNS_GO_ARM64_SHA_MISSING
+require_marker Dockerfile.dapper 'ARG DOCKER_VERSION=29.9.2' EXTERNAL_DNS_DOCKER_VERSION_NOT_CURRENT
+require_marker Dockerfile.dapper 'ARG DOCKER_LINUX_AMD64_SHA256=9ac225999fd5e863f7694c728ef23d480616b1e5639328fa309befd4243d69eb' EXTERNAL_DNS_DOCKER_AMD64_SHA_MISSING
+require_marker Dockerfile.dapper 'ARG DOCKER_LINUX_ARM64_SHA256=873b3e0207857c3b2f28392fb922f3ea6efe37620c16d4d4aaf2fef409c90b73' EXTERNAL_DNS_DOCKER_ARM64_SHA_MISSING
 require_marker Dockerfile.dapper 'echo "${docker_sha}  /tmp/docker.tgz" | sha256sum -c -' EXTERNAL_DNS_DOCKER_SHA_NOT_CHECKED
 reject_marker Dockerfile.dapper 'curl -fsSL "https://download.docker.com' EXTERNAL_DNS_DOCKER_DOWNLOAD_UNBOUNDED
 require_marker package/Dockerfile 'USER 10001:10001' EXTERNAL_DNS_RUNTIME_NOT_NON_ROOT
 require_marker ubuntu-apt.lock "UBUNTU_APT_SNAPSHOT='20260808T000000Z'" EXTERNAL_DNS_APT_SNAPSHOT_MISSING
-require_marker Dockerfile.dapper 'ca-certificates="${UBUNTU_APT_CA_CERTIFICATES_VERSION}"' EXTERNAL_DNS_BUILD_APT_LOCK_MISSING
+require_marker Dockerfile.dapper '/tmp/ca-certificates.deb \' EXTERNAL_DNS_BUILD_CA_PACKAGE_MISSING
+require_marker Dockerfile.dapper 'test "$(dpkg-query -W -f=' EXTERNAL_DNS_BUILD_CA_READBACK_MISSING
 require_marker package/Dockerfile 'ARG ALPINE_IMAGE=alpine:3.23@sha256:1beb0dc0a51de7ff38e3b5274078a2e0b81113ba5c7535e1a03d5913a5edbda3' EXTERNAL_DNS_RUNTIME_BASE_NOT_PINNED
 require_marker package/Dockerfile 'bash=5.3.3-r1' EXTERNAL_DNS_RUNTIME_BASH_NOT_PINNED
-require_marker package/Dockerfile 'ca-certificates=20260611-r0' EXTERNAL_DNS_RUNTIME_CA_NOT_PINNED
+require_marker package/Dockerfile 'ca-certificates=20261020-r0' EXTERNAL_DNS_RUNTIME_CA_NOT_PINNED
+require_marker package/Dockerfile 'libcrypto3=3.5.9-r0' EXTERNAL_DNS_RUNTIME_CRYPTO_NOT_PATCHED
+require_marker package/Dockerfile 'libssl3=3.5.9-r0' EXTERNAL_DNS_RUNTIME_SSL_NOT_PATCHED
 reject_marker package/Dockerfile 'apt-get' EXTERNAL_DNS_RUNTIME_APT_PRESENT
 require_marker package/Dockerfile 'org.opencontainers.image.version="${VERSION}"' EXTERNAL_DNS_OCI_VERSION_MISSING
 require_marker package/Dockerfile 'org.opencontainers.image.revision="${REVISION}"' EXTERNAL_DNS_OCI_REVISION_MISSING
@@ -52,7 +55,7 @@ require_marker scripts/version 'plain numeric semantic version' EXTERNAL_DNS_NUM
 require_marker scripts/package 'test "${legal_count}" -eq 59' EXTERNAL_DNS_LEGAL_COUNT_GATE_MISSING
 require_marker scripts/package 'mkdir -p ../dist' EXTERNAL_DNS_DIST_DIRECTORY_GATE_MISSING
 require_marker go.mod 'go 1.26.0' EXTERNAL_DNS_GO_MODULE_COMPATIBILITY_VERSION_MISSING
-require_marker go.mod 'toolchain go1.27.0' EXTERNAL_DNS_GO_TOOLCHAIN_VERSION_MISSING
+require_marker go.mod 'toolchain go1.27.3' EXTERNAL_DNS_GO_TOOLCHAIN_VERSION_MISSING
 require_marker go.mod 'github.com/aws/aws-sdk-go-v2/service/route53 v1.65.10' EXTERNAL_DNS_AWS_SDK_V2_ROUTE53_MISSING
 require_marker go.mod 'github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0' EXTERNAL_DNS_ALIDNS_V5_MISSING
 require_marker vendor/modules.txt '# github.com/aws/aws-sdk-go-v2/service/route53 v1.65.10' EXTERNAL_DNS_AWS_SDK_V2_VENDOR_MISSING
@@ -173,5 +176,5 @@ if [ "$failure_count" -ne 0 ]; then
   exit 1
 fi
 
-printf 'EXTERNAL_DNS_SOURCE_GATES_OK go_min=1.26.0 toolchain=1.27.0 build=ubuntu-26.04 runtime=alpine-3.23 non_root=1 legal_files=%s endpoint_override=bounded\n' \
+printf 'EXTERNAL_DNS_SOURCE_GATES_OK go_min=1.26.0 toolchain=1.27.3 build=ubuntu-26.04 runtime=alpine-3.23 non_root=1 legal_files=%s endpoint_override=bounded\n' \
   "$legal_count"
