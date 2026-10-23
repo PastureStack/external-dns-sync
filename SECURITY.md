@@ -49,7 +49,7 @@ socket to build and package the runtime image. It must not be deployed as a
 production service.
 
 The build image uses a digest-pinned Ubuntu 26.04 base, the
-`20260808T000000Z` snapshot, Go 1.27.0, and Docker CLI 29.7.2 from
+`20260808T000000Z` snapshot, Go 1.27.3, and Docker CLI 29.7.2 from
 SHA-256-verified official archives. The runtime uses a digest-pinned Alpine
 3.23 base with only exact Bash and CA-certificate packages.
 Builds run in Go module vendor mode with network dependency resolution disabled.

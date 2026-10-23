@@ -2,7 +2,7 @@ module github.com/PastureStack/external-dns-sync
 
 go 1.26.0
 
-toolchain go1.27.0
+toolchain go1.27.3
 
 require (
 	github.com/alibabacloud-go/alidns-20150109/v5 v5.6.0
@@ -24,7 +24,7 @@ require (
 	github.com/sirupsen/logrus v1.10.2
 	github.com/valyala/fasttemplate v1.2.2
 	github.com/waynz0r/go-powerdns v1.1.1
-	golang.org/x/net v0.58.0
+	golang.org/x/net v0.60.0
 	golang.org/x/oauth2 v0.36.0
 )
 
@@ -58,7 +58,7 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gopkg.in/ini.v1 v1.67.3 // indirect
 )

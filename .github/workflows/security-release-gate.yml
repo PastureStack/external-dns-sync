@@ -1,13 +1,24 @@
 name: Security release gate
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: New immutable numeric tag; empty runs verification only
+        required: false
+        default: ''
+        type: string
   push:
     branches:
       - 'verification/external-dns-sync-*'
 
 permissions:
-  contents: read
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
 
 concurrency:
   group: external-dns-sync-security-${{ github.ref }}
@@ -29,6 +40,29 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Validate manual release request
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$RELEASE_TAG" = 'v0.8.1'
+          test -z "$(git status --porcelain)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$GITHUB_SHA"
+          tags="$(gh api --paginate "repos/$GITHUB_REPOSITORY/tags" --jq '.[].name')"
+          if grep -Fxq "$RELEASE_TAG" <<<"$tags"; then
+            echo 'The release tag already exists; refusing to overwrite it' >&2
+            exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" --jq '
+            [.check_runs[] | select(.name == "Analyze (go)" or .name == "Analyze (actions)")]
+            | group_by(.name) | length == 2 and all(any(.conclusion == "success"))' | grep -Fx true
 
       - name: Record candidate identity and source gates
         shell: bash
@@ -289,6 +323,58 @@ jobs:
           test "$dapper_secrets" -eq 0
           test "$dapper_applicable_critical" -eq 0
           test "$dapper_applicable_high" -eq 0
+
+      - name: Publish the tested image once
+        id: publish
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          TESTED_IMAGE: ghcr.io/pasturestack/external-dns-sync:v0.8.1
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$GITHUB_SHA"
+          remote="ghcr.io/pasturestack/external-dns-sync:$RELEASE_TAG"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          if docker manifest inspect "$remote" > /dev/null 2> evidence/registry-preflight.txt; then
+            echo 'Image tag already exists; refusing to overwrite it' >&2
+            exit 1
+          fi
+          grep -Ei 'manifest unknown|no such manifest|not found' evidence/registry-preflight.txt
+          docker tag "$TESTED_IMAGE" "$remote"
+          docker push "$remote"
+          reference="$(docker image inspect --format '{{index .RepoDigests 0}}' "$remote")"
+          digest="${reference#*@}"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          printf 'image=%s\ndigest=%s\nproducer=%s\n' "$remote" "$digest" "$GITHUB_SHA" > evidence/published.txt
+          (cd evidence && sha256sum published.txt > published.sha256)
+
+      - name: Attest the published image
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/pasturestack/external-dns-sync
+          subject-digest: ${{ steps.publish.outputs.digest }}
+          push-to-registry: true
+
+      - name: Record the immutable source and release
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          tag_sha="$(gh api --method POST "repos/$GITHUB_REPOSITORY/git/tags" \
+            -f tag="$RELEASE_TAG" -f object="$GITHUB_SHA" -f type=commit \
+            -f message="Security refresh $RELEASE_TAG" --jq .sha)"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$RELEASE_TAG" -f sha="$tag_sha" >/dev/null
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "$RELEASE_TAG" --notes-file evidence/published.txt \
+            evidence/published.txt evidence/published.sha256
 
       - name: Upload review evidence
         if: always()

@@ -1,5 +1,7 @@
 <!-- Modified by PastureStack contributors for independent maintenance and rebranding. -->
 
+Current source builds use Go 1.27.3 with Go language minimum 1.26.0, selected `golang.org/x/net` v0.60.0 and its required `golang.org/x/sys` v0.48.0. The Ubuntu 26.04 builder pins CA package 20260816ubuntu0.26.04.1 without advancing other package snapshots; the Alpine 3.23 runtime pins CA package 20261020-r0. These inputs apply to newly built artifacts.
+
 # External DNS Sync
 
 > PastureStack is an independent community effort to preserve, audit, and modernize the Rancher 1.6 ecosystem. It is not affiliated with or endorsed by Rancher Labs or SUSE.
@@ -85,7 +87,7 @@ precedence for new deployments.
 
 ## Local build and test
 
-The project uses a containerized Go 1.27.0 module build with a committed
+The project uses a containerized Go 1.27.3 module build with a committed
 `vendor/modules.txt` dependency lock. Route 53 uses AWS SDK for Go v2
 `v1.65.10`; AliDNS uses Alibaba Cloud's maintained V2.0 SDK `v5.6.0`.
 The end-of-life AWS SDK for Go v1, Aliyungo, and the legacy `vendor.conf`
