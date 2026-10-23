@@ -239,7 +239,7 @@ jobs:
 
           # The reviewed package is only user-space Linux API headers inside
           # the disposable builder; no kernel image or modules can be present.
-          grep -F $'linux-libc-dev:amd64\t7.0.0-29.29' evidence/dapper-dpkg.tsv >/dev/null
+          grep -F $'linux-libc-dev:amd64\t7.0.0-38.38' evidence/dapper-dpkg.tsv >/dev/null
           if grep -Eq '^linux-(image|modules)([-:]|[[:space:]])' evidence/dapper-dpkg.tsv; then
             printf 'Unexpected Linux kernel runtime package in Dapper image\n' >&2
             exit 1

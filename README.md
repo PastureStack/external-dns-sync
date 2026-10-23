@@ -144,3 +144,5 @@ PastureStack has not replaced the license. Upstream copyright notices and the
 license and notice files of vendored dependencies must be preserved. The local
 packaging step copies discovered vendored legal files into
 `/licenses/third-party/` in the runtime image.
+
+Security micro-updates are constrained by `security/ubuntu-security-packages.lock` to the signed Ubuntu 26.04 snapshot of 2026-10-23; the general package snapshot remains unchanged. Builds record the resulting package versions in `/usr/share/pasturestack/ubuntu-security-packages.tsv`. Existing runtime and firewall contracts are unchanged.
