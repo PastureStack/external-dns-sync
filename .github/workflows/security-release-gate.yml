@@ -374,7 +374,7 @@ jobs:
             -f ref="refs/tags/$RELEASE_TAG" -f sha="$tag_sha" >/dev/null
           gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "$RELEASE_TAG" --notes-file evidence/published.txt \
-            evidence/published.txt evidence/published.sha256
+            evidence/published.txt evidence/published.sha256 evidence/*.json
 
       - name: Upload review evidence
         if: always()
