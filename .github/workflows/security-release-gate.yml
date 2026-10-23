@@ -147,7 +147,7 @@ jobs:
           docker run --rm --entrypoint sh "$DAPPER_IMAGE" -lc \
             'docker --version; go version -m /usr/bin/docker' \
             > evidence/docker-cli-version.txt
-          grep -F 'Docker version 29.7.2' evidence/docker-cli-version.txt >/dev/null
+          grep -F 'Docker version 29.9.2' evidence/docker-cli-version.txt >/dev/null
           test -f package/third-party-licenses/github.com/aws/aws-sdk-go-v2/LICENSE.txt
           test -f package/third-party-licenses/github.com/aws/aws-sdk-go-v2/NOTICE.txt
           test -f package/third-party-licenses/github.com/alibabacloud-go/alidns-20150109/v5/LICENSE
