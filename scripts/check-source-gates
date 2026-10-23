@@ -45,6 +45,8 @@ require_marker Dockerfile.dapper 'test "$(dpkg-query -W -f=' EXTERNAL_DNS_BUILD_
 require_marker package/Dockerfile 'ARG ALPINE_IMAGE=alpine:3.23@sha256:1beb0dc0a51de7ff38e3b5274078a2e0b81113ba5c7535e1a03d5913a5edbda3' EXTERNAL_DNS_RUNTIME_BASE_NOT_PINNED
 require_marker package/Dockerfile 'bash=5.3.3-r1' EXTERNAL_DNS_RUNTIME_BASH_NOT_PINNED
 require_marker package/Dockerfile 'ca-certificates=20261020-r0' EXTERNAL_DNS_RUNTIME_CA_NOT_PINNED
+require_marker package/Dockerfile 'libcrypto3=3.5.9-r0' EXTERNAL_DNS_RUNTIME_CRYPTO_NOT_PATCHED
+require_marker package/Dockerfile 'libssl3=3.5.9-r0' EXTERNAL_DNS_RUNTIME_SSL_NOT_PATCHED
 reject_marker package/Dockerfile 'apt-get' EXTERNAL_DNS_RUNTIME_APT_PRESENT
 require_marker package/Dockerfile 'org.opencontainers.image.version="${VERSION}"' EXTERNAL_DNS_OCI_VERSION_MISSING
 require_marker package/Dockerfile 'org.opencontainers.image.revision="${REVISION}"' EXTERNAL_DNS_OCI_REVISION_MISSING

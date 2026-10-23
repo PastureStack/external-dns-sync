@@ -51,7 +51,7 @@ production service.
 The build image uses a digest-pinned Ubuntu 26.04 base, the
 `20260808T000000Z` snapshot, Go 1.27.3, and Docker CLI 29.9.2 from
 SHA-256-verified official archives. The runtime uses a digest-pinned Alpine
-3.23 base with only exact Bash and CA-certificate packages.
+3.23 base with exact Bash, CA-certificate, musl, zlib, and OpenSSL-library security pins.
 Builds run in Go module vendor mode with network dependency resolution disabled.
 Route 53 uses AWS SDK for Go v2 and AliDNS uses Alibaba Cloud's maintained V2.0
 SDK; the end-of-life AWS SDK for Go v1, Aliyungo, and `vendor.conf` must not
